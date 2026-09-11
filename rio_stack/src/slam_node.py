@@ -144,8 +144,10 @@ class KeyframeAccumulator:
 class RadarSLAM:
     def __init__(self, mount: TiltMount, voxel_size: float = 1.5,
                  gicp_max_corr_dist: float = 6.0, min_correspondences: int = 15,
-                 filter_cfg: FilterConfig | None = None):
+                 filter_cfg: FilterConfig | None = None,
+                 plane_threshold: float = 0.6):
         self.mount = mount
+        self.plane_threshold = plane_threshold
         self.voxel_size = voxel_size
         self.gicp_max_corr_dist = gicp_max_corr_dist
         self.min_correspondences = min_correspondences
@@ -175,7 +177,7 @@ class RadarSLAM:
             return pcd, o3d.geometry.PointCloud()
         try:
             plane_model, inliers = pcd.segment_plane(
-                distance_threshold=0.6, ransac_n=3, num_iterations=200)
+                distance_threshold=self.plane_threshold, ransac_n=3, num_iterations=200)
         except RuntimeError:
             return pcd, o3d.geometry.PointCloud()
         ground = pcd.select_by_index(inliers)
@@ -277,10 +279,15 @@ class RadarSLAM:
             rmse = 0.0
         else:
             try:
+                gicp_t0 = time.monotonic()
                 result = o3d.pipelines.registration.registration_generalized_icp(
                     source, target, self.gicp_max_corr_dist, T_pred,
                     o3d.pipelines.registration.TransformationEstimationForGeneralizedICP(),
                     o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=50))
+                gicp_ms = (time.monotonic() - gicp_t0) * 1000.0
+                if gicp_ms > 150:
+                    print(f"[slam_node] ⚠️  GICP took {gicp_ms:.0f}ms "
+                          f"(source={len(source.points)}, target={len(target.points)})")
             except RuntimeError as e:
                 return {'valid': False, 'reason': f'gicp_exception: {e}'}
 
@@ -352,7 +359,8 @@ def run(args):
     slam = RadarSLAM(mount, voxel_size=args.voxel_size,
                       gicp_max_corr_dist=args.max_corr_dist,
                       min_correspondences=args.min_correspondences,
-                      filter_cfg=filter_cfg)
+                      filter_cfg=filter_cfg,
+                      plane_threshold=args.plane_threshold)
     accum = KeyframeAccumulator(window_s=args.window_s)
 
     points_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -365,7 +373,15 @@ def run(args):
         rio_sock.bind((args.rio_ip, args.rio_port))
         rio_sock.setblocking(False)
 
-    pose_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) if args.pose_port else None
+    # Parse comma-separated pose ports (e.g. "5011,5014") for multi-consumer
+    # forwarding: nav_node, visualizer, and gps_logger each get their own port.
+    pose_ports = []
+    if args.pose_port:
+        for tok in str(args.pose_port).split(','):
+            tok = tok.strip()
+            if tok:
+                pose_ports.append(int(tok))
+    pose_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) if pose_ports else None
 
     print(f"[slam_node] listening points on {args.listen_ip}:{args.listen_port}, "
           f"theta_tilt={args.theta_tilt_deg} deg, keyframe window={args.window_s}s")
@@ -418,7 +434,8 @@ def run(args):
                     T = result['T'].astype('<f8').tobytes()
                     fwd_send = fwd if math.isfinite(fwd) else -1.0  # -1.0 = "nothing in cone"
                     pkt = POSE_PKT_HDR.pack(t, n_map, fwd_send) + T
-                    pose_out.sendto(pkt, (args.pose_ip, args.pose_port))
+                    for pp in pose_ports:
+                        pose_out.sendto(pkt, (args.pose_ip, pp))
             else:
                 extra = ""
                 if 'n_raw' in result:
@@ -451,8 +468,9 @@ def main():
     p.add_argument('--rio-port', type=int, default=5006,
                     help="matches doppler_rio.py --forward-port, for the Doppler-prior/deskew hint")
     p.add_argument('--pose-ip', default='127.0.0.1')
-    p.add_argument('--pose-port', type=int, default=5011,
-                    help="0 to disable pose forwarding")
+    p.add_argument('--pose-port', default='5011',
+                    help="Comma-separated UDP ports for pose forwarding "
+                         "(e.g. '5011,5014'). 0 to disable.")
     p.add_argument('--theta-tilt-deg', type=float, default=40.0)
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="must match doppler_rio.py's --lateral-sign exactly")
@@ -480,6 +498,9 @@ def main():
     p.add_argument('--persistence-min-hits', type=int, default=2, help="of persistence-window")
     p.add_argument('--sor-neighbors', type=int, default=8)
     p.add_argument('--sor-std-ratio', type=float, default=1.5)
+    p.add_argument('--plane-threshold', type=float, default=0.6,
+                    help="RANSAC plane distance threshold in meters for ground "
+                         "segmentation; increase for flight altitude (e.g. 1.0 at 50m AGL)")
     p.add_argument('--save-pcd', default=None,
                     help="Save accumulated map as .pcd on exit. "
                          "Pass a filepath (e.g. map.pcd) or directory.")

@@ -169,7 +169,7 @@ def main():
                     help="skip tests that need radar hardware")
     args = p.parse_args()
 
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
     results = {}
 
     tests = [

@@ -92,6 +92,13 @@ def build_children(args) -> list[Child]:
         rio_forward_ports.append("5007")
     if args.enable_nav:
         rio_forward_ports.append("5008")
+    if args.gps_port:
+        rio_forward_ports.append("5013")  # 5013 -> gps_logger
+
+    # SLAM pose destination ports (comma-separated, parsed by slam_node.py)
+    slam_pose_ports = ["5011"]   # default: nav_node / visualizer
+    if args.gps_port:
+        slam_pose_ports.append("5014")  # 5014 -> gps_logger
 
     children = [
         Child("fanout", [py, "radar_fanout.py",
@@ -111,7 +118,7 @@ def build_children(args) -> list[Child]:
         Child("slam", [py, "slam_node.py",
                         "--listen-port", "5010",
                         "--rio-port", "5006",
-                        "--pose-port", "5011",
+                        "--pose-port", ",".join(slam_pose_ports),
                         "--theta-tilt-deg", str(args.tilt_deg),
                         "--lateral-sign", str(args.lateral_sign),
                         "--voxel-size", str(args.voxel_size),
@@ -147,6 +154,16 @@ def build_children(args) -> list[Child]:
         if args.visualizer_no_gui:
             vis_cmd.append("--no-gui")
         children.append(Child("vis", vis_cmd, critical=False, start_delay_s=1.5))
+    if args.gps_port:
+        log_dir = args.log_dir or 'logs'
+        children.append(Child(
+            "gps", [py, "gps_logger.py",
+                    "--gps-serial", args.gps_port,
+                    "--gps-baud", str(args.gps_baud),
+                    "--log-dir", log_dir,
+                    "--rio-port", "5013",
+                    "--pose-port", "5014"],
+            critical=False, start_delay_s=2.0))
     return children
 
 
@@ -188,6 +205,13 @@ def main():
                     help="run visualizer in terminal HUD mode only (no GUI window)")
     p.add_argument('--save-pcd', default=None,
                     help="Save accumulated SLAM map as .pcd on exit. Pass a filepath or directory.")
+    p.add_argument('--gps-port', default=None,
+                    help="Serial port for GPS NMEA module (e.g. /dev/ttyUSB1). "
+                         "Enables GPS ground-truth logging via gps_logger.py.")
+    p.add_argument('--gps-baud', type=int, default=9600,
+                    help="GPS serial baud rate (NEO-M8N default: 9600)")
+    p.add_argument('--log-dir', default=None,
+                    help="Directory for GPS+radar JSONL logs (default: logs/)")
     args = p.parse_args()
 
     children = build_children(args)
