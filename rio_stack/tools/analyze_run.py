@@ -156,18 +156,35 @@ def compute_position_errors(slam: list[dict], gps: list[dict]) -> dict:
     if not pairs:
         return {}
 
+    # Extract all XY points
+    slam_pts = np.array([p[0]['pos'][:2] for p in pairs])
+    gps_pts = np.array([p[1]['enu'][:2] for p in pairs])
+    
+    # Compute optimal 2D rotation (SVD/Kabsch) to align SLAM heading to GPS heading
+    H = slam_pts.T @ gps_pts
+    U, S, Vt = np.linalg.svd(H)
+    R = Vt.T @ U.T
+    if np.linalg.det(R) < 0:
+        Vt[1, :] *= -1
+        R = Vt.T @ U.T
+        
+    # Rotate all SLAM XY points
+    slam_pts_aligned = slam_pts @ R.T
+
     errors_3d = []
     errors_xy = []
     errors_z = []
     times = []
 
-    for slam_e, gps_e in pairs:
-        sp = np.array(slam_e['pos'])
-        gp = np.array(gps_e['enu'])
+    for i, (slam_e, gps_e) in enumerate(pairs):
+        sp_xy = slam_pts_aligned[i]
+        gp_xy = gps_pts[i]
+        sp_z = slam_e['pos'][2]
+        gp_z = gps_e['enu'][2]
 
-        err_xy = float(np.linalg.norm(sp[:2] - gp[:2]))
-        err_z  = abs(sp[2] - gp[2])
-        err_3d = float(np.linalg.norm(sp - gp))
+        err_xy = float(np.linalg.norm(sp_xy - gp_xy))
+        err_z  = abs(sp_z - gp_z)
+        err_3d = math.sqrt(err_xy**2 + err_z**2)
 
         errors_3d.append(err_3d)
         errors_xy.append(err_xy)

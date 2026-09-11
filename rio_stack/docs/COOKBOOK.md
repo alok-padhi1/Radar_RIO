@@ -10,10 +10,22 @@ The supervisor manages all the radar nodes (`radar_fanout`, `doppler_rio`, `slam
 
 **Run from:** `Radar_RIO/rio_stack/src/`
 
-### Bench / Handheld Testing (with GPS logging)
-Use this for handheld walking tests to gather ground-truth drift data.
+### Stage 1A: Hand-Held Walk Test (with GPS ground-truth)
+Use this specific command for flat-ground walking tests. It lowers the voxel size for human-height scanning and uses `--tilt-deg 0.0` assuming you are holding the radar flat.
 ```bash
-cd Radar_RIO/rio_stack/src/
+cd ~/radar/rio_stack/src/
+python3 supervisor.py \
+    --port /dev/ttyUSB0 --tilt-deg 0.0 --no-mavlink \
+    --voxel-size 0.10 --max-corr-dist 1.0 \
+    --eps 0.10 --save-pcd ../logs/ --visualizer-no-gui \
+    --gps-port /dev/ttyUSB1 --log-dir ../logs/
+```
+*(Logs and the 3D map are saved to the `../logs/` directory when you press Ctrl+C)*
+
+### Standard Bench / Handheld Testing (with GPS logging)
+Use this for general handheld tests with standard parameters.
+```bash
+cd ~/radar/rio_stack/src/
 python3 supervisor.py --port /dev/ttyUSB0 --tilt-deg 40 --no-mavlink --gps-port /dev/ttyUSB1
 ```
 *(Logs are saved to `../logs/run_YYYYMMDD_HHMMSS.jsonl`)*
