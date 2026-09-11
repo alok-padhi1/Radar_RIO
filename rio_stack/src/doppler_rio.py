@@ -29,6 +29,7 @@ and switch back to true SNR/R^2 weights.
 import argparse
 import socket
 import struct
+import threading
 import time
 import math
 from dataclasses import dataclass, field
@@ -37,6 +38,62 @@ import numpy as np
 
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 FORWARD_PKT = struct.Struct('<dfffI')  # t, vx, vy, vz, n_inliers -> mavlink_bridge.py
+# IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
+IMU_PKT = struct.Struct('<dfffffff')   # 32 bytes
+
+
+class IMUListener:
+    """Background thread that drains the latest IMU packet from imu_bridge.py.
+    Implements the 'latest-value grab' synchronization pattern: the IMU runs
+    at 50 Hz, doppler_rio runs at 10-20 Hz, so the freshest reading is always
+    < 20 ms old."""
+
+    def __init__(self, port: int, ip: str = '127.0.0.1'):
+        self._port = port
+        self._ip = ip
+        self._lock = threading.Lock()
+        self._omega = None      # (3,) np.ndarray: [omega_x, omega_y, omega_z] rad/s
+        self._attitude = None   # (3,) np.ndarray: [roll, pitch, yaw] rad
+        self._t_mono = 0.0
+        self._thread = None
+        self._stop = threading.Event()
+
+    def start(self):
+        self._thread = threading.Thread(target=self._run, daemon=True, name='IMUListener')
+        self._thread.start()
+
+    def _run(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((self._ip, self._port))
+        sock.settimeout(0.5)
+        print(f"[doppler_rio] IMU listener started on {self._ip}:{self._port}")
+        while not self._stop.is_set():
+            try:
+                data, _ = sock.recvfrom(64)
+                if len(data) >= IMU_PKT.size:
+                    t_mono, roll, pitch, yaw, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
+                    with self._lock:
+                        self._omega = np.array([ox, oy, oz])
+                        self._attitude = np.array([roll, pitch, yaw])
+                        self._t_mono = t_mono
+            except socket.timeout:
+                continue
+            except Exception:
+                continue
+        sock.close()
+
+    def get_omega(self, max_age_s: float = 0.5):
+        """Returns the latest angular velocity (3,) or None if stale/unavailable."""
+        with self._lock:
+            if self._omega is None:
+                return None
+            age = time.monotonic() - self._t_mono
+            if age > max_age_s:
+                return None
+            return self._omega.copy()
+
+    def stop(self):
+        self._stop.set()
 
 
 @dataclass
@@ -251,7 +308,8 @@ class DopplerRIO:
     def __init__(self, mount: TiltMount, min_range=0.3, max_range=350.0,
                  eps=0.15, iters=60, min_inlier_ratio=0.35,
                  static_margin_frac=0.12, static_margin_min=3,
-                 cond_reject_threshold=30.0, deadband_mps=0.05):
+                 cond_reject_threshold=30.0, deadband_mps=0.05,
+                 imu_listener: IMUListener | None = None):
         self.mount = mount
         self.min_range, self.max_range = min_range, max_range
         self.eps, self.iters, self.min_inlier_ratio = eps, iters, min_inlier_ratio
@@ -259,6 +317,7 @@ class DopplerRIO:
         self.static_margin_min = static_margin_min
         self.cond_reject_threshold = cond_reject_threshold
         self.deadband_mps = deadband_mps
+        self.imu_listener = imu_listener
 
     def process_frame(self, points_radar: np.ndarray, t_frame: float):
         """points_radar: (N,4) [x,y,z,v] in RADAR frame. Returns a result dict."""
@@ -275,8 +334,24 @@ class DopplerRIO:
         xyz_b, v_meas, ranges = xyz_b[keep], v_meas[keep], ranges[keep]
         u_body = xyz_b / ranges[:, None]
 
+        # ── IMU rotation compensation (Stage 3) ──
+        # When the radar rotates at angular velocity omega, each point p_i
+        # experiences an apparent Doppler shift from the rotational velocity
+        # omega × p_i projected onto the LOS direction u_i. We subtract this
+        # contribution so RANSAC/WLS see only translational velocity.
+        #   v_adjusted_i = v_meas_i + dot(u_i, cross(omega, p_i))
+        omega = None
+        if self.imu_listener is not None:
+            omega = self.imu_listener.get_omega()
+        if omega is not None:
+            omega_cross_p = np.cross(omega, xyz_b)          # (N, 3)
+            v_rot_comp = np.sum(u_body * omega_cross_p, axis=1)  # (N,)
+            v_adjusted = v_meas + v_rot_comp
+        else:
+            v_adjusted = v_meas
+
         ransac_result = doppler_ransac(
-            u_body, v_meas, self.eps, self.iters, self.min_inlier_ratio,
+            u_body, v_adjusted, self.eps, self.iters, self.min_inlier_ratio,
             static_margin_frac=self.static_margin_frac,
             static_margin_min=self.static_margin_min,
             cond_reject_threshold=self.cond_reject_threshold)
@@ -293,7 +368,7 @@ class DopplerRIO:
             # hypothesis beat it by the required margin) is high confidence.
             cov = np.eye(3) * 1e-4
         else:
-            v_body, cov = weighted_refit(u_body, v_meas, ranges, mask)
+            v_body, cov = weighted_refit(u_body, v_adjusted, ranges, mask)
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
@@ -309,6 +384,7 @@ class DopplerRIO:
             'v_body': v_body, 'cov_v': cov,
             'n_inliers': int(mask.sum()), 'n_total': int(keep.sum()),
             'is_static': is_static, 'cond': cond,
+            'omega': omega,
         }
 
 
@@ -338,12 +414,20 @@ def run_udp_loop(args):
     mount = TiltMount(theta_tilt_deg=args.theta_tilt_deg,
                        lever_arm=np.array([args.lever_x, args.lever_y, args.lever_z]),
                        lateral_sign=args.lateral_sign)
+
+    # ── IMU listener (optional, Stage 3+) ──
+    imu_listener = None
+    if args.imu_port and args.imu_port > 0:
+        imu_listener = IMUListener(port=args.imu_port, ip=args.listen_ip)
+        imu_listener.start()
+
     rio = DopplerRIO(mount, max_range=args.max_range, eps=args.eps,
                       min_inlier_ratio=args.min_inlier_ratio,
                       static_margin_frac=args.static_margin_frac,
                       static_margin_min=args.static_margin_min,
                       cond_reject_threshold=args.cond_reject_threshold,
-                      deadband_mps=args.deadband)
+                      deadband_mps=args.deadband,
+                      imu_listener=imu_listener)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.listen_ip, args.listen_port))
@@ -371,8 +455,10 @@ def run_udp_loop(args):
         if result['valid']:
             vx, vy, vz = result['v_body']
             tag = 'STATIC' if result.get('is_static') else f"cond={result.get('cond', 0):.1f}"
+            omega = result.get('omega')
+            imu_tag = f" ω={np.linalg.norm(omega):.2f}" if omega is not None else ""
             print(f"t={t_frame:.3f}  v_body=[{vx:+.3f} {vy:+.3f} {vz:+.3f}] m/s  "
-                  f"inliers={result['n_inliers']}/{result['n_total']}  {tag}")
+                  f"inliers={result['n_inliers']}/{result['n_total']}  {tag}{imu_tag}")
             if out_sock:
                 pkt = FORWARD_PKT.pack(t_frame, vx, vy, vz, result['n_inliers'])
                 for dest_ip, dest_port in forward_dests:
@@ -463,6 +549,9 @@ if __name__ == '__main__':
                          "condition number exceeds this (near-planar/degenerate geometry)")
     p.add_argument('--deadband', type=float, default=0.05,
                     help="m/s; snap |v_body| below this to exactly zero")
+    p.add_argument('--imu-port', type=int, default=0,
+                    help="UDP port to receive IMU data from imu_bridge.py "
+                         "(default 0 = disabled, no rotation compensation)")
     args = p.parse_args()
 
     self_test() if args.selftest else run_udp_loop(args)

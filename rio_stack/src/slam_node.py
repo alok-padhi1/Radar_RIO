@@ -42,6 +42,8 @@ from filters import FilterConfig, PersistenceTracker, preprocess_frame
 
 UDP_HEADER = struct.Struct('<I')
 RIO_PKT = struct.Struct('<dfffI')   # t, vx, vy, vz, n_inliers -- matches doppler_rio.py FORWARD_PKT
+# IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
+IMU_PKT = struct.Struct('<dfffffff')  # 32 bytes
 # t, n_map_points, fwd_obstacle_range_m ; followed by 16 float64 (4x4 row-major T)
 POSE_PKT_HDR = struct.Struct('<dId')
 
@@ -114,21 +116,38 @@ class KeyframeAccumulator:
             return True
         return (self._frames[-1][0] - self.t_last_kf) >= self.window_s
 
-    def build(self, v_body_hint: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
+    def build(self, v_body_hint: np.ndarray | None,
+              omega_hint: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
         """Returns (points_Nx3, v_radial_N) in the reference frame of the
         newest sample in the window, with older frames translated back along
         v_body_hint to deskew ('un-move' the vehicle's own motion during the
-        window) if a velocity hint is available. v_radial is passed through
-        unchanged -- it's a frame-invariant radial measurement (see the
-        monograph, Sec. 1.4), so deskewing the xyz doesn't touch it."""
+        window) if a velocity hint is available. When omega_hint is provided
+        (from the IMU), also applies a first-order rotational correction to
+        older frames. v_radial is passed through unchanged -- it's a
+        frame-invariant radial measurement (see the monograph, Sec. 1.4),
+        so deskewing the xyz doesn't touch it."""
         if not self._frames:
             return np.empty((0, 3)), np.empty((0,))
         t_ref = self._frames[-1][0]
         pts_all, v_all = [], []
         for t, xyz, v in self._frames:
             dt = t_ref - t
-            if v_body_hint is not None and dt > 0:
-                xyz = xyz - v_body_hint * dt  # shift into the reference frame's timestamp
+            if dt > 0:
+                # Rotational deskew (Stage 3): rotate older points back by
+                # omega * dt using the Rodrigues small-angle approximation.
+                if omega_hint is not None:
+                    dtheta = omega_hint * dt
+                    angle = np.linalg.norm(dtheta)
+                    if angle > 1e-6:
+                        k = dtheta / angle
+                        K = np.array([[0, -k[2], k[1]],
+                                      [k[2], 0, -k[0]],
+                                      [-k[1], k[0], 0]])
+                        R_dt = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * (K @ K)
+                        xyz = xyz @ R_dt.T  # rotate points into reference frame
+                # Translational deskew
+                if v_body_hint is not None:
+                    xyz = xyz - v_body_hint * dt
             pts_all.append(xyz)
             v_all.append(v)
         merged = np.vstack(pts_all)
@@ -373,6 +392,15 @@ def run(args):
         rio_sock.bind((args.rio_ip, args.rio_port))
         rio_sock.setblocking(False)
 
+    # IMU listener (optional, Stage 3+): same latest-value-grab pattern as RIO
+    imu_sock = None
+    latest_omega = None  # (3,) np.ndarray or None
+    if args.imu_port and args.imu_port > 0:
+        imu_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        imu_sock.bind((args.listen_ip, args.imu_port))
+        imu_sock.setblocking(False)
+        print(f"[slam_node] IMU listener on {args.listen_ip}:{args.imu_port}")
+
     # Parse comma-separated pose ports (e.g. "5011,5014") for multi-consumer
     # forwarding: nav_node, visualizer, and gps_logger each get their own port.
     pose_ports = []
@@ -399,6 +427,17 @@ def run(args):
                 except BlockingIOError:
                     pass
 
+            # Drain any pending IMU updates (non-blocking, latest-value grab).
+            if imu_sock is not None:
+                try:
+                    while True:
+                        data, _ = imu_sock.recvfrom(64)
+                        if len(data) >= IMU_PKT.size:
+                            _t, _r, _p, _y, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
+                            latest_omega = np.array([ox, oy, oz])
+                except BlockingIOError:
+                    pass
+
             try:
                 data, _ = points_sock.recvfrom(65535)
             except socket.timeout:
@@ -416,7 +455,7 @@ def run(args):
             if not accum.ready(min_frames=args.min_frames_per_keyframe):
                 continue
 
-            merged_xyz, merged_v = accum.build(slam.last_v_body)
+            merged_xyz, merged_v = accum.build(slam.last_v_body, omega_hint=latest_omega)
             accum.clear()
             accum.t_last_kf = t
 
@@ -457,6 +496,8 @@ def run(args):
         points_sock.close()
         if rio_sock:
             rio_sock.close()
+        if imu_sock:
+            imu_sock.close()
 
 
 def main():
@@ -504,6 +545,9 @@ def main():
     p.add_argument('--save-pcd', default=None,
                     help="Save accumulated map as .pcd on exit. "
                          "Pass a filepath (e.g. map.pcd) or directory.")
+    p.add_argument('--imu-port', type=int, default=0,
+                    help="UDP port to receive IMU data from imu_bridge.py "
+                         "(default 0 = disabled, no rotation deskew)")
     args = p.parse_args()
     run(args)
 

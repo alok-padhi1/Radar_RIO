@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+imu_bridge.py
+MAVLink → UDP bridge for Cube Orange (or any ArduPilot/PX4 flight controller).
+
+Connects to the flight controller via USB serial (typically /dev/ttyACM0),
+requests the ATTITUDE stream at 50 Hz, and broadcasts the fused angular
+velocity (rollspeed, pitchspeed, yawspeed) plus attitude (roll, pitch, yaw)
+over local UDP for consumption by doppler_rio.py and slam_node.py.
+
+Based on the team's extract_imu.py, redesigned as a headless UDP broadcaster
+instead of a terminal printer.
+
+Packet format (IMU_PKT, 32 bytes):
+    struct '<dfffffff'
+    t_mono:   float64  — time.monotonic() at receive
+    roll:     float32  — fused roll (rad)
+    pitch:    float32  — fused pitch (rad)
+    yaw:      float32  — fused yaw (rad)
+    omega_x:  float32  — rollspeed (rad/s), body X axis
+    omega_y:  float32  — pitchspeed (rad/s), body Y axis
+    omega_z:  float32  — yawspeed (rad/s), body Z axis
+
+Usage (standalone):
+    python3 imu_bridge.py --port /dev/ttyACM0
+
+Usage (via supervisor.py):
+    Launched automatically when --imu-port is specified.
+
+Requires: pip install pymavlink
+"""
+
+import argparse
+import socket
+import struct
+import sys
+import time
+
+try:
+    from pymavlink import mavutil
+except ImportError:
+    print("ERROR: imu_bridge.py requires 'pymavlink':")
+    print("  pip install pymavlink")
+    sys.exit(1)
+
+# Wire format: matches the listener in doppler_rio.py and slam_node.py
+IMU_PKT = struct.Struct('<dfffffff')  # 32 bytes
+
+
+def main():
+    p = argparse.ArgumentParser(description="Cube Orange IMU → UDP bridge")
+    p.add_argument('--port', default='/dev/ttyACM0',
+                   help="Serial port for the flight controller (default: /dev/ttyACM0)")
+    p.add_argument('--baud', type=int, default=115200,
+                   help="Baud rate for FC serial (default: 115200)")
+    p.add_argument('--rate-hz', type=int, default=50,
+                   help="Requested ATTITUDE stream rate in Hz (default: 50)")
+    p.add_argument('--dest-ip', default='127.0.0.1')
+    p.add_argument('--dest-ports', default='5020,5021',
+                   help="Comma-separated UDP ports to broadcast IMU data to "
+                        "(default: 5020 for doppler_rio, 5021 for slam_node)")
+    p.add_argument('--stats-interval', type=float, default=10.0,
+                   help="Seconds between status prints (default: 10)")
+    args = p.parse_args()
+
+    dest_ports = [int(x.strip()) for x in args.dest_ports.split(',') if x.strip()]
+    if not dest_ports:
+        print("[imu_bridge] ERROR: no destination ports specified.")
+        sys.exit(1)
+
+    # ── Connect to flight controller ──
+    print(f"[imu_bridge] Connecting to FC on {args.port} at {args.baud} baud...")
+    try:
+        master = mavutil.mavlink_connection(args.port, baud=args.baud)
+    except Exception as e:
+        print(f"[imu_bridge] ERROR: Failed to connect to {args.port}: {e}")
+        sys.exit(1)
+
+    print("[imu_bridge] Waiting for heartbeat...")
+    try:
+        master.wait_heartbeat(timeout=15.0)
+    except Exception:
+        print("[imu_bridge] ERROR: Timeout waiting for heartbeat. "
+              "Check that the Cube Orange is powered and plugged in.")
+        sys.exit(1)
+
+    print(f"[imu_bridge] ✅ Heartbeat received — System {master.target_system}, "
+          f"Component {master.target_component}")
+
+    # Request ATTITUDE stream (contains fused roll/pitch/yaw + angular rates)
+    # EXTRA1 stream includes ATTITUDE messages
+    master.mav.request_data_stream_send(
+        master.target_system, master.target_component,
+        mavutil.mavlink.MAV_DATA_STREAM_EXTRA1,
+        args.rate_hz, 1)
+
+    print(f"[imu_bridge] Requested ATTITUDE at {args.rate_hz} Hz → "
+          f"UDP {args.dest_ip}:{dest_ports}")
+
+    # ── UDP output socket ──
+    out_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # ── Main loop ──
+    msg_count = 0
+    t_last_stats = time.monotonic()
+
+    try:
+        while True:
+            msg = master.recv_match(type='ATTITUDE', blocking=True, timeout=1.0)
+            if msg is None:
+                continue
+
+            t_mono = time.monotonic()
+            msg_count += 1
+
+            # Pack and broadcast
+            pkt = IMU_PKT.pack(
+                t_mono,
+                msg.roll,        # rad
+                msg.pitch,       # rad
+                msg.yaw,         # rad
+                msg.rollspeed,   # rad/s  (body X = forward)
+                msg.pitchspeed,  # rad/s  (body Y = right)
+                msg.yawspeed,    # rad/s  (body Z = down)
+            )
+            for port in dest_ports:
+                try:
+                    out_sock.sendto(pkt, (args.dest_ip, port))
+                except OSError:
+                    pass
+
+            # Periodic status print
+            now = time.monotonic()
+            if now - t_last_stats >= args.stats_interval:
+                rate = msg_count / (now - t_last_stats) if (now - t_last_stats) > 0 else 0
+                print(f"[imu_bridge] {msg_count} ATTITUDE msgs "
+                      f"({rate:.0f} Hz) | "
+                      f"RPY=[{msg.roll:+.2f}, {msg.pitch:+.2f}, {msg.yaw:+.2f}] rad | "
+                      f"ω=[{msg.rollspeed:+.3f}, {msg.pitchspeed:+.3f}, {msg.yawspeed:+.3f}] rad/s")
+                msg_count = 0
+                t_last_stats = now
+
+    except KeyboardInterrupt:
+        print("\n[imu_bridge] Shutting down.")
+        # Stop requesting the data stream
+        try:
+            master.mav.request_data_stream_send(
+                master.target_system, master.target_component,
+                mavutil.mavlink.MAV_DATA_STREAM_EXTRA1, 0, 0)
+        except Exception:
+            pass
+
+
+if __name__ == '__main__':
+    main()

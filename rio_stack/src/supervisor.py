@@ -113,7 +113,8 @@ def build_children(args) -> list[Child]:
                        "--eps", str(args.eps),
                        "--min-inlier-ratio", str(args.min_inlier_ratio),
                        "--cond-reject-threshold", str(args.cond_reject_threshold),
-                       "--deadband", str(args.deadband)],
+                       "--deadband", str(args.deadband)]
+                       + (["--imu-port", "5020"] if args.imu_port else []),
               critical=True, start_delay_s=1.0),
         Child("slam", [py, "slam_node.py",
                         "--listen-port", "5010",
@@ -164,6 +165,13 @@ def build_children(args) -> list[Child]:
                     "--rio-port", "5013",
                     "--pose-port", "5014"],
             critical=False, start_delay_s=2.0))
+    if args.imu_port:
+        children.append(Child(
+            "imu", [py, "imu_bridge.py",
+                    "--port", args.imu_port,
+                    "--baud", str(args.imu_baud),
+                    "--dest-ports", "5020,5021"],
+            critical=False, start_delay_s=0.5))
     return children
 
 
@@ -212,6 +220,11 @@ def main():
                     help="GPS serial baud rate (NEO-M8N default: 9600)")
     p.add_argument('--log-dir', default=None,
                     help="Directory for GPS+radar JSONL logs (default: logs/)")
+    p.add_argument('--imu-port', default=None,
+                    help="Serial port for IMU/FC (e.g. /dev/ttyACM0). "
+                         "Enables IMU rotation compensation via imu_bridge.py.")
+    p.add_argument('--imu-baud', type=int, default=115200,
+                    help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
     args = p.parse_args()
 
     children = build_children(args)

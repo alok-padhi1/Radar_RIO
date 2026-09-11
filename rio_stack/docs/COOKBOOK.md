@@ -17,10 +17,22 @@ cd ~/radar/rio_stack/src/
 python3 supervisor.py \
     --port /dev/ttyUSB0 --tilt-deg 0.0 --no-mavlink \
     --voxel-size 0.10 --max-corr-dist 1.0 \
-    --eps 0.10 --save-pcd ../logs/ --visualizer-no-gui \
+    --eps 0.10 --save-pcd ../../maps/ --visualizer-no-gui \
     --gps-port /dev/ttyUSB1 --log-dir ../logs/
 ```
-*(Logs and the 3D map are saved to the `../logs/` directory when you press Ctrl+C)*
+*(The JSONL logs are saved to `../logs/`, and the 3D map is saved to `../../maps/` when you press Ctrl+C)*
+
+### Stage 3: IMU Rotation Compensation Testing
+Use this for testing the Z-axis drift fix using the Cube Orange IMU. The IMU must be plugged in via USB before running this.
+```bash
+cd ~/radar/rio_stack/src/
+python3 supervisor.py \
+    --port /dev/ttyUSB0 --tilt-deg 0.0 --no-mavlink \
+    --voxel-size 0.10 --max-corr-dist 1.0 \
+    --eps 0.10 --save-pcd ../../maps/ --visualizer-no-gui \
+    --gps-port /dev/ttyUSB1 --log-dir ../logs/ \
+    --imu-port /dev/ttyACM0
+```
 
 ### Standard Bench / Handheld Testing (with GPS logging)
 Use this for general handheld tests with standard parameters.
@@ -45,10 +57,10 @@ python3 supervisor.py --port /dev/ttyUSB0 --tilt-deg 40 --platform px4 --mavlink
 ```
 
 ### Saving a Map (.pcd)
-You can append `--save-pcd ../logs/` to any supervisor command to save the accumulated 3D SLAM map when you press `Ctrl+C`.
+You can append `--save-pcd ../../maps/` to any supervisor command to save the accumulated 3D SLAM map when you press `Ctrl+C`.
 ```bash
 cd Radar_RIO/rio_stack/src/
-python3 supervisor.py --port /dev/ttyUSB0 --tilt-deg 40 --no-mavlink --save-pcd ../logs/
+python3 supervisor.py --port /dev/ttyUSB0 --tilt-deg 40 --no-mavlink --save-pcd ../../maps/
 ```
 
 ---
