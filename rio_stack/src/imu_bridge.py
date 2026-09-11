@@ -39,12 +39,12 @@ import time
 try:
     from pymavlink import mavutil
 except ImportError:
-    print("ERROR: imu_bridge.py requires 'pymavlink':")
-    print("  pip install pymavlink")
+    print("ERROR: imu_bridge.py requires 'pymavlink':", flush=True)
+    print("  pip install pymavlink", flush=True)
     sys.exit(1)
 
 # Wire format: matches the listener in doppler_rio.py and slam_node.py
-IMU_PKT = struct.Struct('<dfffffff')  # 32 bytes
+IMU_PKT = struct.Struct('<dffffff')  # 32 bytes
 
 
 def main():
@@ -65,37 +65,36 @@ def main():
 
     dest_ports = [int(x.strip()) for x in args.dest_ports.split(',') if x.strip()]
     if not dest_ports:
-        print("[imu_bridge] ERROR: no destination ports specified.")
+        print("[imu_bridge] ERROR: no destination ports specified.", flush=True)
         sys.exit(1)
 
     # ── Connect to flight controller ──
-    print(f"[imu_bridge] Connecting to FC on {args.port} at {args.baud} baud...")
+    print(f"[imu_bridge] Connecting to FC on {args.port} at {args.baud} baud...", flush=True)
     try:
         master = mavutil.mavlink_connection(args.port, baud=args.baud)
     except Exception as e:
-        print(f"[imu_bridge] ERROR: Failed to connect to {args.port}: {e}")
+        print(f"[imu_bridge] ERROR: Failed to connect to {args.port}: {e}", flush=True)
         sys.exit(1)
 
-    print("[imu_bridge] Waiting for heartbeat...")
+    print("[imu_bridge] Waiting for heartbeat...", flush=True)
     try:
         master.wait_heartbeat(timeout=15.0)
     except Exception:
         print("[imu_bridge] ERROR: Timeout waiting for heartbeat. "
-              "Check that the Cube Orange is powered and plugged in.")
+              "Check that the Cube Orange is powered and plugged in.", flush=True)
         sys.exit(1)
 
     print(f"[imu_bridge] ✅ Heartbeat received — System {master.target_system}, "
-          f"Component {master.target_component}")
+          f"Component {master.target_component}", flush=True)
 
-    # Request ATTITUDE stream (contains fused roll/pitch/yaw + angular rates)
-    # EXTRA1 stream includes ATTITUDE messages
+    # Request ALL streams to ensure we get ATTITUDE
     master.mav.request_data_stream_send(
         master.target_system, master.target_component,
-        mavutil.mavlink.MAV_DATA_STREAM_EXTRA1,
+        mavutil.mavlink.MAV_DATA_STREAM_ALL,
         args.rate_hz, 1)
 
     print(f"[imu_bridge] Requested ATTITUDE at {args.rate_hz} Hz → "
-          f"UDP {args.dest_ip}:{dest_ports}")
+          f"UDP {args.dest_ip}:{dest_ports}", flush=True)
 
     # ── UDP output socket ──
     out_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -136,17 +135,17 @@ def main():
                 print(f"[imu_bridge] {msg_count} ATTITUDE msgs "
                       f"({rate:.0f} Hz) | "
                       f"RPY=[{msg.roll:+.2f}, {msg.pitch:+.2f}, {msg.yaw:+.2f}] rad | "
-                      f"ω=[{msg.rollspeed:+.3f}, {msg.pitchspeed:+.3f}, {msg.yawspeed:+.3f}] rad/s")
+                      f"ω=[{msg.rollspeed:+.3f}, {msg.pitchspeed:+.3f}, {msg.yawspeed:+.3f}] rad/s", flush=True)
                 msg_count = 0
                 t_last_stats = now
 
     except KeyboardInterrupt:
-        print("\n[imu_bridge] Shutting down.")
+        print("\n[imu_bridge] Shutting down.", flush=True)
         # Stop requesting the data stream
         try:
             master.mav.request_data_stream_send(
                 master.target_system, master.target_component,
-                mavutil.mavlink.MAV_DATA_STREAM_EXTRA1, 0, 0)
+                mavutil.mavlink.MAV_DATA_STREAM_ALL, 0, 0)
         except Exception:
             pass
 

@@ -33,7 +33,7 @@ import numpy as np
 
 def load_log(path: str):
     """Parse a JSONL log file into separate GPS, RIO, SLAM, and meta entries."""
-    gps, rio, slam = [], [], []
+    gps, rio, slam, imu = [], [], [], []
     meta = {}
 
     with open(path) as f:
@@ -54,10 +54,12 @@ def load_log(path: str):
                 rio.append(entry)
             elif etype == 'slam':
                 slam.append(entry)
+            elif etype == 'imu':
+                imu.append(entry)
             elif etype == 'meta':
                 meta = entry
 
-    return gps, rio, slam, meta
+    return gps, rio, slam, imu, meta
 
 
 # ─── Analysis Functions ─────────────────────────────────────────────────────
@@ -257,7 +259,7 @@ def compute_velocity_errors(rio: list[dict], gps: list[dict]) -> dict:
 
 # ─── Report Printer ─────────────────────────────────────────────────────────
 
-def print_report(gps, rio, slam, meta, log_path) -> bool:
+def print_report(gps, rio, slam, imu, meta, log_path) -> bool:
     """Compute all metrics and print human-readable report.
 
     Returns True if all gates pass, False otherwise.
@@ -282,6 +284,8 @@ def print_report(gps, rio, slam, meta, log_path) -> bool:
     print(f"  GPS Fixes:       {len(gps)}")
     print(f"  RIO Frames:      {len(rio)}")
     print(f"  SLAM Poses:      {len(slam)}")
+    if imu:
+        print(f"  IMU Frames:      {len(imu)}")
     if meta.get('ref_height_m'):
         print(f"  Ref Height:      {meta['ref_height_m']:.2f} m (handheld)")
     if rio:
@@ -377,6 +381,14 @@ def print_report(gps, rio, slam, meta, log_path) -> bool:
             print(f"  Obstacle range:  min={min(fwd_ranges):.1f}m, "
                   f"mean={np.mean(fwd_ranges):.1f}m, max={max(fwd_ranges):.1f}m")
 
+    # ── IMU Statistics ──
+    if imu:
+        omegas = [math.sqrt(i['wx']**2 + i['wy']**2 + i['wz']**2) for i in imu]
+        print(f"\n🔄 IMU STATISTICS")
+        print(f"  Total IMU pkts: {len(imu)}")
+        print(f"  Mean rot speed: {np.mean(omegas):.3f} rad/s")
+        print(f"  Peak rot speed: {np.max(omegas):.3f} rad/s")
+
     # ── Verdict ──
     print(f"\n{BORDER}")
     print(f"  VERDICT")
@@ -422,7 +434,7 @@ def print_report(gps, rio, slam, meta, log_path) -> bool:
 
 # ─── NPZ Export ──────────────────────────────────────────────────────────────
 
-def save_npz(path: str, gps, rio, slam):
+def save_npz(path: str, gps, rio, slam, imu):
     """Export raw arrays for external plotting."""
     arrays = {}
 
@@ -440,6 +452,11 @@ def save_npz(path: str, gps, rio, slam):
         arrays['slam_t'] = np.array([s['t_mono'] for s in slam])
         arrays['slam_pos'] = np.array([s['pos'] for s in slam])
         arrays['slam_n_map'] = np.array([s['n_map'] for s in slam])
+
+    if imu:
+        arrays['imu_t'] = np.array([i['t_mono'] for i in imu])
+        arrays['imu_rpy'] = np.array([[i['roll'], i['pitch'], i['yaw']] for i in imu])
+        arrays['imu_omega'] = np.array([[i['wx'], i['wy'], i['wz']] for i in imu])
 
     np.savez_compressed(path, **arrays)
     print(f"  Saved raw arrays to {path}")
@@ -460,9 +477,9 @@ def main():
         print(f"ERROR: File not found: {args.log_file}")
         sys.exit(1)
 
-    gps, rio, slam, meta = load_log(args.log_file)
+    gps, rio, slam, imu, meta = load_log(args.log_file)
 
-    if not gps and not rio and not slam:
+    if not gps and not rio and not slam and not imu:
         print("ERROR: Log file is empty or contains no recognized entries.")
         sys.exit(1)
 
@@ -470,10 +487,10 @@ def main():
         print("WARNING: No GPS data in log. Position comparison will be skipped.")
         print("         Was the GPS module connected and getting satellite fixes?")
 
-    passed = print_report(gps, rio, slam, meta, args.log_file)
+    passed = print_report(gps, rio, slam, imu, meta, args.log_file)
 
     if args.save_npz:
-        save_npz(args.save_npz, gps, rio, slam)
+        save_npz(args.save_npz, gps, rio, slam, imu)
 
     sys.exit(0 if passed else 1)
 

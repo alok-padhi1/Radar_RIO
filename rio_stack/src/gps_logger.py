@@ -54,6 +54,7 @@ except ImportError:
 RIO_PKT = struct.Struct('<dfffI')   # t_frame, vx, vy, vz, n_inliers (24 bytes)
 POSE_PKT_HDR = struct.Struct('<dId') # t_slam, n_map_pts, fwd_range (20 bytes)
 # Followed by 128 bytes: 4×4 float64 row-major T_world
+IMU_PKT = struct.Struct('<dffffff')  # t_mono, roll, pitch, yaw, wx, wy, wz (32 bytes)
 
 
 # ─── Geodesy ─────────────────────────────────────────────────────────────────
@@ -193,17 +194,23 @@ def run(args):
     pose_sock.bind(('127.0.0.1', args.pose_port))
     pose_sock.setblocking(False)
 
+    imu_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    imu_sock.bind(('127.0.0.1', args.imu_port))
+    imu_sock.setblocking(False)
+
     print(f"[gps_logger] ── Configuration ──")
     print(f"[gps_logger]   Log file:   {log_path}")
     print(f"[gps_logger]   GPS:        {args.gps_serial} @ {args.gps_baud} baud")
     print(f"[gps_logger]   RIO UDP:    127.0.0.1:{args.rio_port}")
     print(f"[gps_logger]   SLAM UDP:   127.0.0.1:{args.pose_port}")
+    print(f"[gps_logger]   IMU UDP:    127.0.0.1:{args.imu_port}")
     print(f"[gps_logger]   Ref height: {args.ref_height_m:.2f} m (handheld)")
     print(f"[gps_logger] Waiting for data...")
 
     n_gps = 0
     n_rio = 0
     n_slam = 0
+    n_imu = 0
     t_start = time.monotonic()
     last_status = t_start
 
@@ -294,6 +301,29 @@ def run(args):
                 except BlockingIOError:
                     pass
 
+                # ── IMU data (drain all pending) ──
+                try:
+                    while True:
+                        data, _ = imu_sock.recvfrom(128)
+                        if len(data) != IMU_PKT.size:
+                            continue
+                        t_mono, roll, pitch, yaw, wx, wy, wz = IMU_PKT.unpack(data)
+                        
+                        entry = {
+                            'type': 'imu',
+                            't_mono': round(t_mono, 6),
+                            'roll': round(roll, 4),
+                            'pitch': round(pitch, 4),
+                            'yaw': round(yaw, 4),
+                            'wx': round(wx, 4),
+                            'wy': round(wy, 4),
+                            'wz': round(wz, 4),
+                        }
+                        f.write(json.dumps(entry) + '\n')
+                        n_imu += 1
+                except BlockingIOError:
+                    pass
+
                 # ── Status printout (every 3 seconds) ──
                 now = time.monotonic()
                 if now - last_status >= 3.0:
@@ -302,8 +332,9 @@ def run(args):
                                if gps.origin else "GPS: waiting for fix...")
                     slam_tag = f"SLAM: {n_slam} poses"
                     rio_tag = f"RIO: {n_rio} pkts, dist={rio_dist:.2f}m"
+                    imu_tag = f"IMU: {n_imu} pkts"
                     print(f"[gps_logger] {elapsed:5.0f}s | {gps_tag} | "
-                          f"{rio_tag} | {slam_tag}")
+                          f"{rio_tag} | {slam_tag} | {imu_tag}")
                     last_status = now
                     f.flush()
 
@@ -314,6 +345,7 @@ def run(args):
         gps.stop()
         rio_sock.close()
         pose_sock.close()
+        imu_sock.close()
 
     # ── Session summary ──
     print(f"[gps_logger] ── Session Summary ──")
@@ -321,6 +353,7 @@ def run(args):
     print(f"[gps_logger]   GPS fixes:      {n_gps}")
     print(f"[gps_logger]   RIO frames:     {n_rio}")
     print(f"[gps_logger]   SLAM poses:     {n_slam}")
+    print(f"[gps_logger]   IMU frames:     {n_imu}")
     print(f"[gps_logger]   RIO distance:   {rio_dist:.2f} m")
     print(f"[gps_logger]   RIO displacement: {np.linalg.norm(rio_pos):.2f} m")
     if gps.origin:
@@ -340,6 +373,8 @@ def main():
                     help="UDP port to receive RIO velocity from doppler_rio.py")
     p.add_argument('--pose-port', type=int, default=5014,
                     help="UDP port to receive SLAM pose from slam_node.py")
+    p.add_argument('--imu-port', type=int, default=5022,
+                    help="UDP port to receive IMU data from imu_bridge.py")
     p.add_argument('--log-dir', default='logs',
                     help="Directory for JSONL log files")
     p.add_argument('--ref-height-m', type=float, default=0.9,

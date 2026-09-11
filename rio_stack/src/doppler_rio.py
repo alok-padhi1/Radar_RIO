@@ -39,7 +39,7 @@ import numpy as np
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 FORWARD_PKT = struct.Struct('<dfffI')  # t, vx, vy, vz, n_inliers -> mavlink_bridge.py
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
-IMU_PKT = struct.Struct('<dfffffff')   # 32 bytes
+IMU_PKT = struct.Struct('<dffffff')   # 32 bytes
 
 
 class IMUListener:

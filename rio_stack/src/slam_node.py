@@ -43,7 +43,7 @@ from filters import FilterConfig, PersistenceTracker, preprocess_frame
 UDP_HEADER = struct.Struct('<I')
 RIO_PKT = struct.Struct('<dfffI')   # t, vx, vy, vz, n_inliers -- matches doppler_rio.py FORWARD_PKT
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
-IMU_PKT = struct.Struct('<dfffffff')  # 32 bytes
+IMU_PKT = struct.Struct('<dffffff')  # 32 bytes
 # t, n_map_points, fwd_obstacle_range_m ; followed by 16 float64 (4x4 row-major T)
 POSE_PKT_HDR = struct.Struct('<dId')
 

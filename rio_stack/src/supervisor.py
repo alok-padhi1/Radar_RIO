@@ -166,11 +166,14 @@ def build_children(args) -> list[Child]:
                     "--pose-port", "5014"],
             critical=False, start_delay_s=2.0))
     if args.imu_port:
+        imu_dest_ports = ["5020", "5021"]
+        if args.gps_port:
+            imu_dest_ports.append("5022")
         children.append(Child(
             "imu", [py, "imu_bridge.py",
                     "--port", args.imu_port,
                     "--baud", str(args.imu_baud),
-                    "--dest-ports", "5020,5021"],
+                    "--dest-ports", ",".join(imu_dest_ports)],
             critical=False, start_delay_s=0.5))
     return children
 
