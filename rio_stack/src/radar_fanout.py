@@ -22,6 +22,8 @@ radar_streamer.py so behavior on the wire is unchanged; only the fan-out
 after parsing is new.
 """
 
+import logging
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 import argparse
 import queue
 import socket
@@ -118,7 +120,7 @@ class SerialReaderThread(threading.Thread):
                       f"(reconnect #{self._reconnects})")
                 return True
             except (serial.SerialException, OSError) as e:
-                print(f"[radar_fanout] ⏳ Waiting for {self.port}... ({e})")
+                logging.info(f"⏳ Waiting for {self.port}... ({e})")
                 self._stop.wait(2.0)
         return False
 
@@ -141,8 +143,8 @@ class SerialReaderThread(threading.Thread):
                 if self._frame_counter % self.slam_decimation == 0:
                     self._put_dropping_oldest(self.slam_q, f, is_rio=False)
             except (serial.SerialException, OSError) as e:
-                print(f"[radar_fanout] ⚠️  Serial error: {e}")
-                print(f"[radar_fanout] Attempting reconnect to {self.port}...")
+                logging.info(f"⚠️  Serial error: {e}")
+                logging.info(f"Attempting reconnect to {self.port}...")
                 if not self._reconnect():
                     break  # stop was set
 

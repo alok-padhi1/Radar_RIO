@@ -38,6 +38,9 @@ import sys
 import threading
 import time
 from datetime import datetime
+import logging
+
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 import numpy as np
 
@@ -45,8 +48,7 @@ try:
     import serial
     import pynmea2
 except ImportError:
-    print("ERROR: gps_logger.py requires 'pyserial' and 'pynmea2':")
-    print("  pip install pyserial pynmea2")
+    logging.error("gps_logger.py requires 'pyserial' and 'pynmea2': pip install pyserial pynmea2")
     sys.exit(1)
 
 
@@ -105,9 +107,9 @@ class GPSReader(threading.Thread):
     def run(self):
         try:
             self._ser = serial.Serial(self.port, self.baud, timeout=1.0)
-            print(f"[gps_logger] GPS serial opened: {self.port} @ {self.baud}")
+            logging.info(f"GPS serial opened: {self.port} @ {self.baud}")
         except serial.SerialException as e:
-            print(f"[gps_logger] ERROR opening GPS serial {self.port}: {e}")
+            logging.error(f"ERROR opening GPS serial {self.port}: {e}")
             return
 
         while not self._stop.is_set():
@@ -132,8 +134,8 @@ class GPSReader(threading.Thread):
                 # First fix becomes ENU origin
                 if self.origin is None:
                     self.origin = (lat, lon, alt)
-                    print(f"[gps_logger] GPS origin set: {lat:.6f} {msg.lat_dir}, "
-                          f"{lon:.6f} {msg.lon_dir}, {alt:.1f} m MSL")
+                    logging.info(f"GPS origin set: {lat:.6f} {msg.lat_dir}, "
+                                 f"{lon:.6f} {msg.lon_dir}, {alt:.1f} m MSL")
 
                 e, n, u = lla_to_enu(lat, lon, alt, *self.origin)
 
@@ -157,10 +159,10 @@ class GPSReader(threading.Thread):
                 pass  # corrupt sentence -- common over serial, ignore
             except serial.SerialException:
                 if not self._stop.is_set():
-                    print("[gps_logger] GPS serial error, stopping reader")
+                    logging.warning("GPS serial error, stopping reader")
                 break
             except Exception as exc:
-                print(f"[gps_logger] GPS reader unexpected error: {exc}")
+                logging.error(f"GPS reader unexpected error: {exc}")
 
         if self._ser and self._ser.is_open:
             self._ser.close()
@@ -198,14 +200,14 @@ def run(args):
     imu_sock.bind(('127.0.0.1', args.imu_port))
     imu_sock.setblocking(False)
 
-    print(f"[gps_logger] ── Configuration ──")
-    print(f"[gps_logger]   Log file:   {log_path}")
-    print(f"[gps_logger]   GPS:        {args.gps_serial} @ {args.gps_baud} baud")
-    print(f"[gps_logger]   RIO UDP:    127.0.0.1:{args.rio_port}")
-    print(f"[gps_logger]   SLAM UDP:   127.0.0.1:{args.pose_port}")
-    print(f"[gps_logger]   IMU UDP:    127.0.0.1:{args.imu_port}")
-    print(f"[gps_logger]   Ref height: {args.ref_height_m:.2f} m (handheld)")
-    print(f"[gps_logger] Waiting for data...")
+    logging.info("── Configuration ──")
+    logging.info(f"  Log file:   {log_path}")
+    logging.info(f"  GPS:        {args.gps_serial} @ {args.gps_baud} baud")
+    logging.info(f"  RIO UDP:    127.0.0.1:{args.rio_port}")
+    logging.info(f"  SLAM UDP:   127.0.0.1:{args.pose_port}")
+    logging.info(f"  IMU UDP:    127.0.0.1:{args.imu_port}")
+    logging.info(f"  Ref height: {args.ref_height_m:.2f} m (handheld)")
+    logging.info("Waiting for data...")
 
     n_gps = 0
     n_rio = 0
@@ -333,14 +335,13 @@ def run(args):
                     slam_tag = f"SLAM: {n_slam} poses"
                     rio_tag = f"RIO: {n_rio} pkts, dist={rio_dist:.2f}m"
                     imu_tag = f"IMU: {n_imu} pkts"
-                    print(f"[gps_logger] {elapsed:5.0f}s | {gps_tag} | "
-                          f"{rio_tag} | {slam_tag} | {imu_tag}")
+                    logging.info(f"{elapsed:5.0f}s | {gps_tag} | {rio_tag} | {slam_tag} | {imu_tag}")
                     last_status = now
                     f.flush()
 
     except KeyboardInterrupt:
         elapsed = time.monotonic() - t_start
-        print(f"\n[gps_logger] Stopped after {elapsed:.1f}s")
+        logging.info(f"Stopped after {elapsed:.1f}s")
     finally:
         gps.stop()
         rio_sock.close()
@@ -348,18 +349,18 @@ def run(args):
         imu_sock.close()
 
     # ── Session summary ──
-    print(f"[gps_logger] ── Session Summary ──")
-    print(f"[gps_logger]   Log file:       {log_path}")
-    print(f"[gps_logger]   GPS fixes:      {n_gps}")
-    print(f"[gps_logger]   RIO frames:     {n_rio}")
-    print(f"[gps_logger]   SLAM poses:     {n_slam}")
-    print(f"[gps_logger]   IMU frames:     {n_imu}")
-    print(f"[gps_logger]   RIO distance:   {rio_dist:.2f} m")
-    print(f"[gps_logger]   RIO displacement: {np.linalg.norm(rio_pos):.2f} m")
+    logging.info("── Session Summary ──")
+    logging.info(f"  Log file:       {log_path}")
+    logging.info(f"  GPS fixes:      {n_gps}")
+    logging.info(f"  RIO frames:     {n_rio}")
+    logging.info(f"  SLAM poses:     {n_slam}")
+    logging.info(f"  IMU frames:     {n_imu}")
+    logging.info(f"  RIO distance:   {rio_dist:.2f} m")
+    logging.info(f"  RIO displacement: {np.linalg.norm(rio_pos):.2f} m")
     if gps.origin:
-        print(f"[gps_logger]   GPS origin:     {gps.origin[0]:.6f}°, "
-              f"{gps.origin[1]:.6f}°, {gps.origin[2]:.1f}m MSL")
-    print(f"[gps_logger] Run:  python3 analyze_run.py {log_path}")
+        logging.info(f"  GPS origin:     {gps.origin[0]:.6f}°, "
+                     f"{gps.origin[1]:.6f}°, {gps.origin[2]:.1f}m MSL")
+    logging.info(f"Run:  python3 tools/analyze_run.py {log_path}")
 
 
 def main():

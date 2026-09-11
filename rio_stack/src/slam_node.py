@@ -26,6 +26,8 @@ Output: incremental pose chain (SE(3) per keyframe) and the running
 Requires: pip install open3d numpy --break-system-packages
 """
 
+import logging
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 import argparse
 import math
 import os
@@ -484,13 +486,13 @@ def run(args):
                               f"sor={result.get('n_after_sor')})")
                 elif 'n_corr' in result:
                     extra = f" (n_corr={result.get('n_corr')}/{args.min_correspondences} fitness={result.get('fitness', 0):.3f})"
-                print(f"[slam_node] keyframe REJECTED: {result.get('reason')}{extra}")
+                logging.info(f"keyframe REJECTED: {result.get('reason')}{extra}")
     except KeyboardInterrupt:
         print("\n[slam_node] Interrupted by user.")
     finally:
         n_poses = len(slam.pose_chain)
         n_map = len(slam.map_cloud.points)
-        print(f"[slam_node] Session summary: {n_poses} keyframes, {n_map} map points")
+        logging.info(f"Session summary: {n_poses} keyframes, {n_map} map points")
         if hasattr(args, 'save_pcd') and args.save_pcd:
             _save_map(slam, args.save_pcd)
         points_sock.close()

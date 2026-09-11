@@ -27,6 +27,9 @@ import subprocess
 import sys
 import threading
 import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format="[SUPERVISOR] [%(levelname)s] %(message)s")
 
 
 class Child:
@@ -40,7 +43,7 @@ class Child:
         self.restarts = 0
 
     def start(self):
-        print(f"[supervisor] starting {self.name}: {' '.join(shlex.quote(c) for c in self.cmd)}")
+        logging.info(f"starting {self.name}: {' '.join(shlex.quote(c) for c in self.cmd)}")
         # Root-cause #5 of the Stage 1 bug report: without forcing unbuffered
         # stdout, Python block-buffers (4-8KB) when stdout is a pipe rather
         # than a TTY. doppler_rio.py prints 20 lines/sec and fills its buffer
@@ -63,7 +66,8 @@ class Child:
     def _pump_output(self):
         assert self.proc and self.proc.stdout
         for line in self.proc.stdout:
-            print(f"[{self.name}] {line.rstrip()}")
+            # Assumes the child script outputs: [INFO] message
+            print(f"[{self.name.upper()}] {line.rstrip()}")
 
     def alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
@@ -140,7 +144,7 @@ def build_children(args) -> list[Child]:
             critical=False, start_delay_s=2.0))
     if args.enable_nav:
         if not args.waypoints:
-            print("[supervisor] --enable-nav requires --waypoints; refusing to start nav_node.")
+            logging.error("--enable-nav requires --waypoints; refusing to start nav_node.")
         else:
             children.append(Child(
                 "nav", [py, "nav_node.py",
@@ -234,7 +238,7 @@ def main():
     stop_flag = threading.Event()
 
     def handle_sigint(signum, frame):
-        print("\n[supervisor] shutting down...")
+        logging.info("shutting down...")
         stop_flag.set()
 
     signal.signal(signal.SIGINT, handle_sigint)
@@ -244,28 +248,28 @@ def main():
             time.sleep(c.start_delay_s)
         c.start()
 
-    print("[supervisor] all processes launched. Ctrl+C to stop the stack.")
+    logging.info("all processes launched. Ctrl+C to stop the stack.")
     try:
         while not stop_flag.is_set():
             time.sleep(1.0)
             for c in children:
                 if not c.alive():
                     if c.critical:
-                        print(f"[supervisor] CRITICAL process '{c.name}' died -- "
-                              f"stopping the whole stack rather than running degraded.")
+                        logging.error(f"CRITICAL process '{c.name}' died -- "
+                                      f"stopping the whole stack rather than running degraded.")
                         stop_flag.set()
                         break
                     elif c.restarts < 1:
-                        print(f"[supervisor] non-critical '{c.name}' died, restarting once.")
+                        logging.warning(f"non-critical '{c.name}' died, restarting once.")
                         c.restarts += 1
                         c.start()
                     else:
-                        print(f"[supervisor] '{c.name}' died again, not restarting further. "
+                        logging.error(f"'{c.name}' died again, not restarting further. "
                               f"Fix and restart the supervisor.")
     finally:
         for c in reversed(children):
             c.stop()
-        print("[supervisor] all processes stopped.")
+        logging.info("all processes stopped.")
 
 
 if __name__ == '__main__':
