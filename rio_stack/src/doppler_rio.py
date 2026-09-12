@@ -215,7 +215,7 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
                     eps: float = 0.15, iters: int = 80,
                     min_inlier_ratio: float = 0.35, max_speed_mps: float = 25.0,
                     static_margin_frac: float = 0.12, static_margin_min: int = 3,
-                    cond_reject_threshold: float = 30.0, rng=None):
+                    cond_reject_threshold: float = 30.0, rng=None, force_2d: bool = False):
     """
     Vectorized Doppler-RANSAC with a static-hypothesis margin requirement
     and a condition-number gate against near-planar geometry degeneracy.
@@ -297,7 +297,11 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
         if sing[-1] < 1e-3 or (sing[0] / max(sing[-1], 1e-9)) > cond_reject_threshold:
             continue
         try:
-            v_k, _, _, _ = np.linalg.lstsq(A_sub, b_sub, rcond=1e-2)
+            if force_2d:
+                v_k_2d, _, _, _ = np.linalg.lstsq(A_sub[:, :2], b_sub, rcond=1e-2)
+                v_k = np.array([v_k_2d[0], v_k_2d[1], 0.0])
+            else:
+                v_k, _, _, _ = np.linalg.lstsq(A_sub, b_sub, rcond=1e-2)
         except (np.linalg.LinAlgError, ValueError):
             continue
         if np.linalg.norm(v_k) > max_speed_mps:
@@ -321,25 +325,40 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
     if best_score / n < min_inlier_ratio:
         return None
 
-    cond = float(np.linalg.cond(-u_body[best_mask]))
+    A_cond = -u_body[best_mask]
+    if force_2d:
+        A_cond = A_cond[:, :2]
+    cond = float(np.linalg.cond(A_cond))
     if cond > cond_reject_threshold:
         return None
 
     return best_mask, False, cond
 
 
-def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0):
+def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0, force_2d: bool = False):
     """Eq. (9): v = (A^T W A)^-1 A^T W b using weighted least-squares with SVD conditioning."""
     A = -u_body[mask]
+    if force_2d:
+        A = A[:, :2]
     b = v_radial[mask]
     w = 1.0 / np.clip(ranges[mask], 0.5, None) ** 2
     sqrt_w = np.sqrt(w)
     A_w = A * sqrt_w[:, None]
     b_w = b * sqrt_w
     try:
-        v_body, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+        v_res, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+        if force_2d:
+            v_body = np.array([v_res[0], v_res[1], 0.0])
+        else:
+            v_body = v_res
         ATA = A_w.T @ A_w
-        cov = np.linalg.pinv(ATA, rcond=1e-3)
+        cov_sub = np.linalg.pinv(ATA, rcond=1e-3)
+        if force_2d:
+            cov = np.zeros((3, 3))
+            cov[:2, :2] = cov_sub
+            cov[2, 2] = 1.0
+        else:
+            cov = cov_sub
     except (np.linalg.LinAlgError, ValueError):
         return None, None
 
@@ -403,7 +422,8 @@ class DopplerRIO:
             u_body, v_adjusted, self.eps, self.iters, self.min_inlier_ratio,
             static_margin_frac=self.static_margin_frac,
             static_margin_min=self.static_margin_min,
-            cond_reject_threshold=self.cond_reject_threshold)
+            cond_reject_threshold=self.cond_reject_threshold,
+            force_2d=(attitude is not None))
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
@@ -417,7 +437,7 @@ class DopplerRIO:
             # hypothesis beat it by the required margin) is high confidence.
             cov = np.eye(3) * 1e-4
         else:
-            v_body, cov = weighted_refit(u_body, v_adjusted, ranges, mask)
+            v_body, cov = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=(attitude is not None))
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
