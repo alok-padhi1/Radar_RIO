@@ -178,6 +178,7 @@ class RadarSLAM:
         self.pose_chain = [self.T_world.copy()]
         self.last_v_body = None           # most recent RIO estimate, for deskew + Doppler prior
         self.last_kf_t = None
+        self.last_attitude = None         # (3,) np.ndarray: [roll, pitch, yaw] from IMU (rad)
 
         # Sec. "Pipeline" addendum: raw keyframes are pre-cleaned (leakage,
         # range, Doppler-consistency, temporal-persistence, SOR) before ever
@@ -189,6 +190,64 @@ class RadarSLAM:
 
     def update_velocity(self, v_body: np.ndarray):
         self.last_v_body = v_body
+
+    def update_attitude(self, attitude: np.ndarray):
+        """Store the latest IMU fused attitude [roll, pitch, yaw] in radians."""
+        self.last_attitude = attitude
+
+    def _gravity_correct(self, T: np.ndarray) -> np.ndarray:
+        """Overwrite pitch and roll of T's rotation with IMU-measured values,
+        preserving GICP's yaw (heading) which is geometrically well-observed.
+
+        The IMU's gravity vector gives authoritative pitch/roll (tilt relative
+        to the Earth's gravity field), while scan-matching gives authoritative
+        yaw (heading from matching wall/feature geometry). Combining the two
+        eliminates the Z-drift caused by GICP's flat-ground degeneracy.
+
+        Rotation convention: R = Rz(yaw) @ Ry(pitch) @ Rx(roll), matching
+        the MAVLink ATTITUDE message's intrinsic ZYX Euler angles.
+        """
+        if self.last_attitude is None:
+            return T
+        roll_imu, pitch_imu, _yaw_imu = self.last_attitude
+
+        # Extract yaw from GICP's rotation matrix (ZYX decomposition)
+        R_gicp = T[:3, :3]
+        yaw_gicp = math.atan2(R_gicp[1, 0], R_gicp[0, 0])
+
+        # Build corrected rotation: Rz(yaw_gicp) @ Ry(pitch_imu) @ Rx(roll_imu)
+        cr, sr = math.cos(roll_imu),  math.sin(roll_imu)
+        cp, sp = math.cos(pitch_imu), math.sin(pitch_imu)
+        cy, sy = math.cos(yaw_gicp),  math.sin(yaw_gicp)
+
+        # ZYX rotation matrix (standard aerospace convention)
+        R_corrected = np.array([
+            [cy*cp,  cy*sp*sr - sy*cr,  cy*sp*cr + sy*sr],
+            [sy*cp,  sy*sp*sr + cy*cr,  sy*sp*cr - cy*sr],
+            [  -sp,            cp*sr,            cp*cr  ],
+        ])
+
+        T_out = T.copy()
+        T_out[:3, :3] = R_corrected
+        return T_out
+
+    @staticmethod
+    def _is_planar_degenerate(pcd: o3d.geometry.PointCloud,
+                               threshold: float = 0.05) -> bool:
+        """Check if a point cloud is geometrically degenerate (flat plane).
+
+        Computes the eigenvalues of the 3x3 spatial covariance matrix.
+        If the smallest eigenvalue is much smaller than the second, the
+        cloud is essentially planar and GICP cannot reliably resolve
+        translation along the plane normal (typically Z on flat ground).
+        """
+        pts = np.asarray(pcd.points)
+        if len(pts) < 10:
+            return True
+        cov = np.cov(pts.T)  # 3x3
+        eigvals = np.linalg.eigvalsh(cov)  # sorted ascending
+        ratio = eigvals[0] / max(eigvals[1], 1e-6)
+        return ratio < threshold
 
     def _ground_plane_split(self, pcd: o3d.geometry.PointCloud):
         """Sec. 2.3: separate the dominant ground plane from off-plane structure.
@@ -287,10 +346,16 @@ class RadarSLAM:
             t_shift = self.T_world[:3, :3] @ (self.last_v_body * dt)
             T_pred[:3, 3] += t_shift
 
+        # Inject IMU gravity into the initial guess so GICP starts searching
+        # from a gravity-consistent orientation (prevents tilted local minima).
+        if self.last_attitude is not None:
+            T_pred = self._gravity_correct(T_pred)
+
         total_pts = max(1, len(source.points))
         off_plane_ratio = len(off_plane.points) / total_pts
+        is_degenerate = (off_plane_ratio < 0.20) or self._is_planar_degenerate(source)
 
-        if off_plane_ratio < 0.20 and self.last_v_body is not None:
+        if is_degenerate and self.last_v_body is not None:
             # Degenerate planar geometry (e.g., flat floor). 3D GICP cannot observe
             # Z-translation or pitch/roll rotation, and will inject massive noise.
             # Bypass GICP entirely and use pure RIO dead-reckoning.
@@ -322,6 +387,15 @@ class RadarSLAM:
             self.T_world = result.transformation
             fitness = result.fitness
             rmse = result.inlier_rmse
+
+        # ── IMU Gravity Correction (Stage 3) ──
+        # After GICP (or RIO dead-reckoning fallback) sets the pose, clamp
+        # pitch and roll to the IMU's measured gravity vector. This prevents
+        # the microscopic tilt errors from GICP's flat-ground degeneracy from
+        # accumulating into catastrophic Z-drift (observed: 33 m in 73 s).
+        if self.last_attitude is not None:
+            self.T_world = self._gravity_correct(self.T_world)
+
         self.pose_chain.append(self.T_world.copy())
         self._merge_into_map(source, self.T_world)
 
@@ -396,7 +470,8 @@ def run(args):
 
     # IMU listener (optional, Stage 3+): same latest-value-grab pattern as RIO
     imu_sock = None
-    latest_omega = None  # (3,) np.ndarray or None
+    latest_omega = None   # (3,) np.ndarray or None — gyroscope angular velocity
+    latest_attitude = None  # (3,) np.ndarray or None — fused [roll, pitch, yaw]
     if args.imu_port and args.imu_port > 0:
         imu_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         imu_sock.bind((args.listen_ip, args.imu_port))
@@ -430,6 +505,10 @@ def run(args):
                     pass
 
             # Drain any pending IMU updates (non-blocking, latest-value grab).
+            # Now stores BOTH gyroscope (for deskew) AND fused attitude (for
+            # gravity alignment). The attitude [roll, pitch, yaw] is the Cube
+            # Orange's EKF-fused estimate of the body's orientation relative
+            # to the Earth frame — this is what kills Z-drift.
             if imu_sock is not None:
                 try:
                     while True:
@@ -437,6 +516,8 @@ def run(args):
                         if len(data) >= IMU_PKT.size:
                             _t, _r, _p, _y, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
                             latest_omega = np.array([ox, oy, oz])
+                            latest_attitude = np.array([_r, _p, _y])
+                            slam.update_attitude(latest_attitude)
                 except BlockingIOError:
                     pass
 
