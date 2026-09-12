@@ -132,7 +132,8 @@ def build_children(args) -> list[Child]:
                         "--persistence-radius", str(args.persistence_radius),
                         "--persistence-min-hits", str(args.persistence_min_hits),
                         "--window-s", str(args.window_s)]
-                        + (["--save-pcd", args.save_pcd] if args.save_pcd else []),
+                        + (["--save-pcd", args.save_pcd] if args.save_pcd else [])
+                        + (["--imu-port", "5021"] if args.imu_port else []),
               critical=True, start_delay_s=1.0),
     ]
     if not args.no_mavlink:
@@ -167,7 +168,8 @@ def build_children(args) -> list[Child]:
                     "--gps-baud", str(args.gps_baud),
                     "--log-dir", log_dir,
                     "--rio-port", "5013",
-                    "--pose-port", "5014"],
+                    "--pose-port", "5014"]
+                    + (["--imu-port", "5022"] if args.imu_port else []),
             critical=False, start_delay_s=2.0))
     if args.imu_port:
         imu_dest_ports = ["5020", "5021"]
