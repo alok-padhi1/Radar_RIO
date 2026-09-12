@@ -72,15 +72,45 @@ class TiltMount:
         # Native U300 radar frame (X=lateral, Y=forward, Z=up) -> pre-tilt
         # body-aligned (X=forward, Y=lateral, Z=down). Confirmed against
         # Linpowave_visualizer_UART userguide_Points_float.pdf.
-        P = np.array([
+        self.P = np.array([
             [0.0,              1.0, 0.0],
             [self.lateral_sign, 0.0, 0.0],
             [0.0,              0.0, -1.0],
         ])
-        self.R = R_tilt @ P
+        self.R_static = R_tilt @ self.P
 
-    def to_body(self, xyz_radar: np.ndarray) -> np.ndarray:
-        return xyz_radar @ self.R.T + self.lever_arm  # Eq.(2)
+    def get_R(self, attitude: np.ndarray) -> np.ndarray:
+        """Returns the dynamic rotation matrix R_{Body -> Earth} from IMU attitude."""
+        roll, pitch, _ = attitude
+        cr, sr = math.cos(roll), math.sin(roll)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        
+        # R_{Body -> Earth} = R_y(pitch) @ R_x(roll)
+        # Note: In aerospace FRD, positive pitch is nose UP, so forward vector moves UP (-Z).
+        Ry = np.array([
+            [ cp, 0.0,  sp],
+            [0.0, 1.0, 0.0],
+            [-sp, 0.0,  cp],
+        ])
+        Rx = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0,  cr, -sr],
+            [0.0,  sr,  cr],
+        ])
+        return Ry @ Rx
+
+    def to_body(self, xyz_radar: np.ndarray, attitude: np.ndarray = None) -> np.ndarray:
+        if attitude is not None:
+            R_level = self.get_R(attitude)
+            
+            # R_tilt (mechanical boresight tilt) is independent of, and in addition
+            # to, the IMU's dynamic leveling — it must not be dropped here.
+            R_dynamic = R_level @ self.R_static   # R_static == R_tilt @ P
+            
+            # The lever arm must ALSO be leveled! 
+            return xyz_radar @ R_dynamic.T + (R_level @ self.lever_arm)
+            
+        return xyz_radar @ self.R_static.T + self.lever_arm  # Eq.(2)
 
 
 def parse_udp_packet(data: bytes):
@@ -138,7 +168,9 @@ class KeyframeAccumulator:
                 # Rotational deskew (Stage 3): rotate older points back by
                 # omega * dt using the Rodrigues small-angle approximation.
                 if omega_hint is not None:
-                    dtheta = omega_hint * dt
+                    # Points must rotate opposite the sensor's own rotation to land
+                    # in the newer frame: p(t_ref) = Exp(-ω·dt) @ p(t).
+                    dtheta = -omega_hint * dt
                     angle = np.linalg.norm(dtheta)
                     if angle > 1e-6:
                         k = dtheta / angle
@@ -196,35 +228,22 @@ class RadarSLAM:
         self.last_attitude = attitude
 
     def _gravity_correct(self, T: np.ndarray) -> np.ndarray:
-        """Overwrite pitch and roll of T's rotation with IMU-measured values,
-        preserving GICP's yaw (heading) which is geometrically well-observed.
-
-        The IMU's gravity vector gives authoritative pitch/roll (tilt relative
-        to the Earth's gravity field), while scan-matching gives authoritative
-        yaw (heading from matching wall/feature geometry). Combining the two
-        eliminates the Z-drift caused by GICP's flat-ground degeneracy.
-
-        Rotation convention: R = Rz(yaw) @ Ry(pitch) @ Rx(roll), matching
-        the MAVLink ATTITUDE message's intrinsic ZYX Euler angles.
+        """Clamp pitch and roll to 0. Since the incoming point clouds are now
+        dynamically leveled by the IMU *before* GICP, the matched pose should
+        be perfectly flat. This prevents numerical noise from accumulating into
+        catastrophic Z-drift (observed: 191 m in 96 s).
         """
-        if self.last_attitude is None:
-            return T
-        roll_imu, pitch_imu, _yaw_imu = self.last_attitude
-
         # Extract yaw from GICP's rotation matrix (ZYX decomposition)
         R_gicp = T[:3, :3]
         yaw_gicp = math.atan2(R_gicp[1, 0], R_gicp[0, 0])
 
-        # Build corrected rotation: Rz(yaw_gicp) @ Ry(pitch_imu) @ Rx(roll_imu)
-        cr, sr = math.cos(roll_imu),  math.sin(roll_imu)
-        cp, sp = math.cos(pitch_imu), math.sin(pitch_imu)
         cy, sy = math.cos(yaw_gicp),  math.sin(yaw_gicp)
 
-        # ZYX rotation matrix (standard aerospace convention)
+        # Pure Yaw rotation matrix
         R_corrected = np.array([
-            [cy*cp,  cy*sp*sr - sy*cr,  cy*sp*cr + sy*sr],
-            [sy*cp,  sy*sp*sr + cy*cr,  sy*sp*cr - cy*sr],
-            [  -sp,            cp*sr,            cp*cr  ],
+            [ cy, -sy, 0.0],
+            [ sy,  cy, 0.0],
+            [0.0, 0.0, 1.0],
         ])
 
         T_out = T.copy()
@@ -530,7 +549,7 @@ def run(args):
             if pts_radar is None:
                 continue
             t = time.monotonic()
-            xyz_body = mount.to_body(pts_radar[:, :3])
+            xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude)
             v_radial = pts_radar[:, 3]
             accum.add(t, xyz_body, v_radial)
             frame_i += 1
@@ -538,7 +557,12 @@ def run(args):
             if not accum.ready(min_frames=args.min_frames_per_keyframe):
                 continue
 
-            merged_xyz, merged_v = accum.build(slam.last_v_body, omega_hint=latest_omega)
+            if latest_omega is not None and latest_attitude is not None:
+                omega_leveled = mount.get_R(latest_attitude) @ latest_omega
+            else:
+                omega_leveled = latest_omega
+
+            merged_xyz, merged_v = accum.build(slam.last_v_body, omega_hint=omega_leveled)
             accum.clear()
             accum.t_last_kf = t
 

@@ -94,6 +94,16 @@ class IMUListener:
                 return None
             return self._omega.copy()
 
+    def get_attitude(self, max_age_s: float = 0.5):
+        """Returns the latest fused attitude [roll, pitch, yaw] or None if stale."""
+        with self._lock:
+            if self._attitude is None:
+                return None
+            age = time.monotonic() - self._t_mono
+            if age > max_age_s:
+                return None
+            return self._attitude.copy()
+
     def stop(self):
         self._stop.set()
 
@@ -142,18 +152,50 @@ class TiltMount:
         # (X_fwd, Y_lat, Z_down). This is the fix -- everything else about
         # the tilt math (Eq. 1-3 of the monograph) is unchanged, it was just
         # being fed the wrong input axes.
-        P = np.array([
+        self.P = np.array([
             [0.0,              1.0, 0.0],   # X_B0 =  Y_R   (forward)
             [self.lateral_sign, 0.0, 0.0],  # Y_B0 = ±X_R   (lateral/right)
             [0.0,              0.0, -1.0],  # Z_B0 = -Z_R   (down = -elevation)
         ])
         # R_R^B(theta_tilt) = R_tilt @ P: apply the axis permutation first,
         # then the mechanical pitch-down tilt, exactly as Eq.(2) expects.
-        self.R = R_tilt @ P
+        self.R_static = R_tilt @ self.P
 
-    def to_body(self, points_radar_xyz: np.ndarray) -> np.ndarray:
-        # Eq. (2): P^B = R_R^B P^R + t^B_R  (vectorized over rows)
-        return points_radar_xyz @ self.R.T + self.lever_arm
+    def get_R(self, attitude: np.ndarray) -> np.ndarray:
+        """Returns the dynamic rotation matrix R_{Body -> Earth} from IMU attitude."""
+        roll, pitch, _ = attitude
+        cr, sr = math.cos(roll), math.sin(roll)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        
+        # R_{Body -> Earth} = R_y(pitch) @ R_x(roll)
+        # Note: In aerospace FRD, positive pitch is nose UP, so forward vector moves UP (-Z).
+        Ry = np.array([
+            [ cp, 0.0,  sp],
+            [0.0, 1.0, 0.0],
+            [-sp, 0.0,  cp],
+        ])
+        Rx = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0,  cr, -sr],
+            [0.0,  sr,  cr],
+        ])
+        return Ry @ Rx
+
+    def to_body(self, points_radar_xyz: np.ndarray, attitude: np.ndarray = None) -> np.ndarray:
+        """Transforms radar points to body frame. If attitude [roll, pitch, yaw] is provided,
+        dynamically rotates the points into a gravity-leveled frame."""
+        if attitude is not None:
+            R_level = self.get_R(attitude)
+            
+            # R_tilt (mechanical boresight tilt) is independent of, and in addition
+            # to, the IMU's dynamic leveling — it must not be dropped here.
+            R_dynamic = R_level @ self.R_static   # R_static == R_tilt @ P
+            
+            # The lever arm must ALSO be leveled! 
+            return points_radar_xyz @ R_dynamic.T + (R_level @ self.lever_arm)
+        
+        # Fallback to static config
+        return points_radar_xyz @ self.R_static.T + self.lever_arm
 
 
 def parse_udp_packet(data: bytes):
@@ -326,7 +368,11 @@ class DopplerRIO:
         if points_radar.shape[0] < 3:
             return {'t': t_frame, 'valid': False, 'n_total': int(points_radar.shape[0])}
 
-        xyz_b = self.mount.to_body(points_radar[:, 0:3])
+        attitude = None
+        if self.imu_listener is not None:
+            attitude = self.imu_listener.get_attitude()
+
+        xyz_b = self.mount.to_body(points_radar[:, 0:3], attitude)
         v_meas = points_radar[:, 3]
         ranges = np.linalg.norm(xyz_b, axis=1)
 
@@ -346,7 +392,8 @@ class DopplerRIO:
         if self.imu_listener is not None:
             omega = self.imu_listener.get_omega()
         if omega is not None:
-            omega_cross_p = np.cross(omega, xyz_b)          # (N, 3)
+            omega_leveled = self.mount.get_R(attitude) @ omega if attitude is not None else omega
+            omega_cross_p = np.cross(omega_leveled, xyz_b)          # (N, 3)
             v_rot_comp = np.sum(u_body * omega_cross_p, axis=1)  # (N,)
             v_adjusted = v_meas + v_rot_comp
         else:

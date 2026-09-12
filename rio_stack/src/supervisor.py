@@ -105,11 +105,11 @@ def build_children(args) -> list[Child]:
         slam_pose_ports.append("5014")  # 5014 -> gps_logger
 
     children = [
-        Child("fanout", [py, "radar_fanout.py",
+        Child("fanout", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "radar_fanout.py"),
                           *(["--port", args.port] if args.port else []),
                           "--slam-decimation", str(args.slam_decimation)],
               critical=True),
-        Child("rio", [py, "doppler_rio.py",
+        Child("rio", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "doppler_rio.py"),
                        "--listen-port", "5005",
                        "--forward-ports", ",".join(rio_forward_ports),
                        "--theta-tilt-deg", str(args.tilt_deg),
@@ -120,7 +120,7 @@ def build_children(args) -> list[Child]:
                        "--deadband", str(args.deadband)]
                        + (["--imu-port", "5020"] if args.imu_port else []),
               critical=True, start_delay_s=1.0),
-        Child("slam", [py, "slam_node.py",
+        Child("slam", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "slam_node.py"),
                         "--listen-port", "5010",
                         "--rio-port", "5006",
                         "--pose-port", ",".join(slam_pose_ports),
@@ -148,14 +148,14 @@ def build_children(args) -> list[Child]:
             logging.error("--enable-nav requires --waypoints; refusing to start nav_node.")
         else:
             children.append(Child(
-                "nav", [py, "nav_node.py",
+                "nav", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "nav_node.py"),
                         "--mavlink-dest", args.mavlink_dest,
                         "--platform", args.platform,
                         "--waypoints", args.waypoints,
                         "--pose-port", "5011", "--rio-port", "5008"],
                 critical=False, start_delay_s=3.0))
     if args.visualizer or args.visualizer_no_gui:
-        vis_cmd = [py, "visualizer_3d.py", "--tilt-deg", str(args.tilt_deg),
+        vis_cmd = [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "visualizer_3d.py"), "--tilt-deg", str(args.tilt_deg),
                    "--lateral-sign", str(args.lateral_sign)]
         if args.visualizer_no_gui:
             vis_cmd.append("--no-gui")
@@ -163,7 +163,7 @@ def build_children(args) -> list[Child]:
     if args.gps_port:
         log_dir = args.log_dir or 'logs'
         children.append(Child(
-            "gps", [py, "gps_logger.py",
+            "gps", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "gps_logger.py"),
                     "--gps-serial", args.gps_port,
                     "--gps-baud", str(args.gps_baud),
                     "--log-dir", log_dir,
@@ -176,7 +176,7 @@ def build_children(args) -> list[Child]:
         if args.gps_port:
             imu_dest_ports.append("5022")
         children.append(Child(
-            "imu", [py, "imu_bridge.py",
+            "imu", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "imu_bridge.py"),
                     "--port", args.imu_port,
                     "--baud", str(args.imu_baud),
                     "--dest-ports", ",".join(imu_dest_ports)],
