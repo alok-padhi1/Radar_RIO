@@ -26,6 +26,8 @@ side-info TLV. If your U300 firmware exposes a Side Info TLV, wire it in
 and switch back to true SNR/R^2 weights.
 """
 
+import logging
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 import argparse
 import socket
 import struct
@@ -506,14 +508,14 @@ def self_test():
     result = rio.process_frame(points_radar, t_frame=0.0)
     assert result['valid'], "RIO rejected a well-conditioned synthetic frame"
     err = np.linalg.norm(result['v_body'] - v_true)
-    print(f"[self_test] v_true      = {v_true}")
-    print(f"[self_test] v_estimated = {result['v_body']}")
-    print(f"[self_test] |error|     = {err:.4f} m/s")
+    logging.info(f"v_true      = {v_true}")
+    logging.info(f"v_estimated = {result['v_body']}")
+    logging.info(f"|error|     = {err:.4f} m/s")
     print(f"[self_test] inliers     = {result['n_inliers']}/{result['n_total']} "
           f"(injected {n_outliers} outliers among {n_static + n_outliers})")
     assert err < 0.15, f"velocity error too large: {err}"
     assert n_static - 10 <= result['n_inliers'] <= n_static + 10, "inlier count off from ground truth"
-    print("[self_test] PASS")
+    logging.info("PASS")
 
 
 if __name__ == '__main__':

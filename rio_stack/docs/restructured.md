@@ -27,10 +27,8 @@ Radar_RIO/
     ├── tests/                   <-- Automated tests and debug scripts
     │   ├── sitl_test.py
     │   ├── test_gicp.py
-    │   ├── test_nav_states.py
     │   ├── test_slam_bug.py
-    │   ├── test_slam_icp.py
-    │   └── test_slam_regression.py
+    │   └── test_slam_icp.py
     │
     ├── logs/                    <-- Output directory (Git-ignored)
     │   └── .gitkeep

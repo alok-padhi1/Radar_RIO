@@ -13,7 +13,7 @@ The supervisor manages all the radar nodes (`radar_fanout`, `doppler_rio`, `slam
 ### Stage 1A: Hand-Held Walk Test (with GPS ground-truth)
 Use this specific command for flat-ground walking tests. It lowers the voxel size for human-height scanning and uses `--tilt-deg 0.0` assuming you are holding the radar flat.
 ```bash
-cd ~/radar/rio_stack/src/
+cd Radar_RIO/rio_stack/src/
 python3 supervisor.py \
     --port /dev/ttyUSB0 --tilt-deg 0.0 --no-mavlink \
     --voxel-size 0.10 --max-corr-dist 1.0 \
