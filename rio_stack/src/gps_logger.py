@@ -53,7 +53,7 @@ except ImportError:
 
 
 # ─── Packet formats (must match doppler_rio.py / slam_node.py) ───────────────
-RIO_PKT = struct.Struct('<dfffI')   # t_frame, vx, vy, vz, n_inliers (24 bytes)
+RIO_PKT = struct.Struct('<dfffIfff')   # t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz
 POSE_PKT_HDR = struct.Struct('<dId') # t_slam, n_map_pts, fwd_range (20 bytes)
 # Followed by 128 bytes: 4×4 float64 row-major T_world
 IMU_PKT = struct.Struct('<dffffff')  # t_mono, roll, pitch, yaw, wx, wy, wz (32 bytes)
@@ -251,7 +251,7 @@ def run(args):
                         data, _ = rio_sock.recvfrom(128)
                         if len(data) < RIO_PKT.size:
                             continue
-                        t_frame, vx, vy, vz, n_inliers = RIO_PKT.unpack_from(data)
+                        t_frame, vx, vy, vz, inliers, _cxx, _cyy, _czz = RIO_PKT.unpack(data)
                         t_mono = time.monotonic()
 
                         # Integrate distance for odometry comparison

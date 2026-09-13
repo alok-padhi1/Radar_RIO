@@ -39,7 +39,7 @@ import numpy as np
 
 
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
-FORWARD_PKT = struct.Struct('<dfffI')  # t, vx, vy, vz, n_inliers -> mavlink_bridge.py
+FORWARD_PKT = struct.Struct('<dfffIfff')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
 IMU_PKT = struct.Struct('<dffffff')   # 32 bytes
 
@@ -84,7 +84,7 @@ class IMUListener:
                 continue
         sock.close()
 
-    def get_omega(self, max_age_s: float = 0.5):
+    def get_omega(self, max_age_s: float = 0.1):
         """Returns the latest angular velocity (3,) or None if stale/unavailable."""
         with self._lock:
             if self._omega is None:
@@ -94,7 +94,7 @@ class IMUListener:
                 return None
             return self._omega.copy()
 
-    def get_attitude(self, max_age_s: float = 0.5):
+    def get_attitude(self, max_age_s: float = 0.1):
         """Returns the latest fused attitude [roll, pitch, yaw] or None if stale."""
         with self._lock:
             if self._attitude is None:
@@ -181,21 +181,23 @@ class TiltMount:
         ])
         return Ry @ Rx
 
+    def current_rotation(self, attitude: np.ndarray = None) -> np.ndarray:
+        """Returns the rotation matrix to_body() would use for this attitude state."""
+        if attitude is not None:
+            return self.get_R(attitude) @ self.R_static
+        return self.R_static
+
     def to_body(self, points_radar_xyz: np.ndarray, attitude: np.ndarray = None) -> np.ndarray:
         """Transforms radar points to body frame. If attitude [roll, pitch, yaw] is provided,
         dynamically rotates the points into a gravity-leveled frame."""
+        R_used = self.current_rotation(attitude)
         if attitude is not None:
             R_level = self.get_R(attitude)
-            
-            # R_tilt (mechanical boresight tilt) is independent of, and in addition
-            # to, the IMU's dynamic leveling — it must not be dropped here.
-            R_dynamic = R_level @ self.R_static   # R_static == R_tilt @ P
-            
             # The lever arm must ALSO be leveled! 
-            return points_radar_xyz @ R_dynamic.T + (R_level @ self.lever_arm)
+            return points_radar_xyz @ R_used.T + (R_level @ self.lever_arm)
         
         # Fallback to static config
-        return points_radar_xyz @ self.R_static.T + self.lever_arm
+        return points_radar_xyz @ R_used.T + self.lever_arm
 
 
 def parse_udp_packet(data: bytes):
@@ -367,12 +369,108 @@ def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0, 
     return v_body, cov
 
 
+def polar_uncertainty_weights(xyz_radar: np.ndarray, u_body: np.ndarray, ranges: np.ndarray,
+                               R_used: np.ndarray, v_estimate: np.ndarray,
+                               sigma_r_m: float, sigma_az_rad: float, sigma_el_rad: float,
+                               sigma_v_mps: float, r_floor: float = 0.5) -> np.ndarray:
+    """Stage 4C: maps the radar's native spherical measurement uncertainty
+    into a per-point scalar weight for the velocity solve."""
+    r_native = np.clip(np.linalg.norm(xyz_radar, axis=1), r_floor, None)
+    x, y, z = xyz_radar[:, 0], xyz_radar[:, 1], xyz_radar[:, 2]
+    az = np.arctan2(x, y)
+    el = np.arctan2(z, np.hypot(x, y))
+    caz, saz = np.cos(az), np.sin(az)
+    cel, sel = np.cos(el), np.sin(el)
+
+    n = len(r_native)
+    J = np.zeros((n, 3, 3))
+    J[:, 0, 0] = cel * saz
+    J[:, 0, 1] = r_native * cel * caz
+    J[:, 0, 2] = -r_native * sel * saz
+    J[:, 1, 0] = cel * caz
+    J[:, 1, 1] = -r_native * cel * saz
+    J[:, 1, 2] = -r_native * sel * caz
+    J[:, 2, 0] = sel
+    J[:, 2, 1] = 0.0
+    J[:, 2, 2] = r_native * cel
+
+    Sigma_polar = np.zeros((n, 3, 3))
+    Sigma_polar[:, 0, 0] = sigma_r_m ** 2
+    Sigma_polar[:, 1, 1] = sigma_az_rad ** 2
+    Sigma_polar[:, 2, 2] = sigma_el_rad ** 2
+
+    Sigma_xyz_radar = np.einsum('nij,njk,nlk->nil', J, Sigma_polar, J)
+    Sigma_xyz_body = np.einsum('ij,njk,lk->nil', R_used, Sigma_xyz_radar, R_used)
+
+    ranges_safe = np.clip(ranges, r_floor, None)
+    u_dot_v = u_body @ v_estimate
+    v_perp = v_estimate[None, :] - u_dot_v[:, None] * u_body           # (N,3)
+    sigma_dir2 = np.einsum('ni,nij,nj->n', v_perp, Sigma_xyz_body, v_perp) / (ranges_safe ** 2)
+
+    sigma_total2 = sigma_v_mps ** 2 + sigma_dir2
+    return 1.0 / np.clip(sigma_total2, 1e-6, None)
+
+
+def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
+                sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps,
+                huber_delta_mps=0.20, max_iters=4, tol_mps=1e-3,
+                gross_outlier_mult=10.0, max_speed_mps=25.0):
+    """Stage 4A: IRLS refinement of the RANSAC-seeded velocity."""
+    v = np.asarray(v_seed, dtype=float).copy()
+    max_iters = int(np.clip(max_iters, 3, 5))
+
+    resid_seed = np.abs(v_radial + u_body @ v)
+    keep = resid_seed <= gross_outlier_mult * huber_delta_mps
+    if keep.sum() < 3:
+        return None, None
+
+    u_k, v_k, xyz_k, r_k = u_body[keep], v_radial[keep], xyz_radar[keep], ranges[keep]
+    A_full, b_full = -u_k, v_k
+    cov = None
+
+    for _ in range(max_iters):
+        w_meas = polar_uncertainty_weights(xyz_k, u_k, r_k, R_used, v,
+                                            sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps)
+        resid = b_full + u_k @ v
+        abs_r = np.abs(resid)
+        w_huber = np.ones_like(abs_r)
+        far = abs_r > huber_delta_mps
+        w_huber[far] = huber_delta_mps / np.clip(abs_r[far], 1e-6, None)
+        w = w_meas * w_huber
+        sqrt_w = np.sqrt(np.clip(w, 0.0, None))
+
+        A_w = A_full * sqrt_w[:, None]
+        b_w = b_full * sqrt_w
+        try:
+            v_new, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+            ATA = A_w.T @ A_w
+            cov = np.linalg.pinv(ATA, rcond=1e-3)
+        except (np.linalg.LinAlgError, ValueError):
+            break
+
+        if np.linalg.norm(v_new) > max_speed_mps:
+            break
+
+        delta = np.linalg.norm(v_new - v)
+        v = v_new
+        if delta < tol_mps:
+            break
+
+    if cov is None or np.linalg.norm(v) > max_speed_mps:
+        return None, None
+    return v, cov
+
+
 class DopplerRIO:
     def __init__(self, mount: TiltMount, min_range=0.3, max_range=350.0,
                  eps=0.15, iters=60, min_inlier_ratio=0.35,
                  static_margin_frac=0.12, static_margin_min=3,
                  cond_reject_threshold=30.0, deadband_mps=0.05,
-                 imu_listener: IMUListener | None = None):
+                 imu_listener: IMUListener | None = None,
+                 huber_delta_mps=0.20, irls_max_iters=4, irls_tol_mps=1e-3,
+                 gross_outlier_mult=10.0,
+                 sigma_r_m=0.10, sigma_az_rad=math.radians(2.0),
+                 sigma_el_rad=math.radians(4.0), sigma_v_mps=0.05):
         self.mount = mount
         self.min_range, self.max_range = min_range, max_range
         self.eps, self.iters, self.min_inlier_ratio = eps, iters, min_inlier_ratio
@@ -381,6 +479,14 @@ class DopplerRIO:
         self.cond_reject_threshold = cond_reject_threshold
         self.deadband_mps = deadband_mps
         self.imu_listener = imu_listener
+        self.huber_delta_mps = huber_delta_mps
+        self.irls_max_iters = irls_max_iters
+        self.irls_tol_mps = irls_tol_mps
+        self.gross_outlier_mult = gross_outlier_mult
+        self.sigma_r_m = sigma_r_m
+        self.sigma_az_rad = sigma_az_rad
+        self.sigma_el_rad = sigma_el_rad
+        self.sigma_v_mps = sigma_v_mps
 
     def process_frame(self, points_radar: np.ndarray, t_frame: float):
         """points_radar: (N,4) [x,y,z,v] in RADAR frame. Returns a result dict."""
@@ -391,7 +497,8 @@ class DopplerRIO:
         if self.imu_listener is not None:
             attitude = self.imu_listener.get_attitude()
 
-        xyz_b = self.mount.to_body(points_radar[:, 0:3], attitude)
+        xyz_radar_native = points_radar[:, 0:3]
+        xyz_b = self.mount.to_body(xyz_radar_native, attitude)
         v_meas = points_radar[:, 3]
         ranges = np.linalg.norm(xyz_b, axis=1)
 
@@ -399,6 +506,7 @@ class DopplerRIO:
         if keep.sum() < 3:
             return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
         xyz_b, v_meas, ranges = xyz_b[keep], v_meas[keep], ranges[keep]
+        xyz_radar_native = xyz_radar_native[keep]
         u_body = xyz_b / ranges[:, None]
 
         # ── IMU rotation compensation (Stage 3) ──
@@ -437,7 +545,17 @@ class DopplerRIO:
             # hypothesis beat it by the required margin) is high confidence.
             cov = np.eye(3) * 1e-4
         else:
-            v_body, cov = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=(attitude is not None))
+            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=(attitude is not None))
+            if v_seed is None:
+                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+
+            R_used = self.mount.current_rotation(attitude)
+            v_body, cov = irls_refit(
+                u_body, v_adjusted, xyz_radar_native, ranges, R_used, v_seed,
+                sigma_r_m=self.sigma_r_m, sigma_az_rad=self.sigma_az_rad,
+                sigma_el_rad=self.sigma_el_rad, sigma_v_mps=self.sigma_v_mps,
+                huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
+                tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult)
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
@@ -496,7 +614,15 @@ def run_udp_loop(args):
                       static_margin_min=args.static_margin_min,
                       cond_reject_threshold=args.cond_reject_threshold,
                       deadband_mps=args.deadband,
-                      imu_listener=imu_listener)
+                      imu_listener=imu_listener,
+                      huber_delta_mps=args.huber_delta,
+                      irls_max_iters=args.irls_max_iters,
+                      irls_tol_mps=args.irls_tol,
+                      gross_outlier_mult=args.gross_outlier_mult,
+                      sigma_r_m=args.sigma_r,
+                      sigma_az_rad=math.radians(args.sigma_az_deg),
+                      sigma_el_rad=math.radians(args.sigma_el_deg),
+                      sigma_v_mps=args.sigma_v)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.listen_ip, args.listen_port))
@@ -529,7 +655,8 @@ def run_udp_loop(args):
             print(f"t={t_frame:.3f}  v_body=[{vx:+.3f} {vy:+.3f} {vz:+.3f}] m/s  "
                   f"inliers={result['n_inliers']}/{result['n_total']}  {tag}{imu_tag}")
             if out_sock:
-                pkt = FORWARD_PKT.pack(t_frame, vx, vy, vz, result['n_inliers'])
+                cov = result['cov_v']
+                pkt = FORWARD_PKT.pack(t_frame, vx, vy, vz, result['n_inliers'], cov[0,0], cov[1,1], cov[2,2])
                 for dest_ip, dest_port in forward_dests:
                     out_sock.sendto(pkt, (dest_ip, dest_port))
         else:
@@ -537,10 +664,36 @@ def run_udp_loop(args):
                   f"-- gap, not a fault; downstream EKF should widen covariance")
 
 
+def _selftest_jacobians():
+    """Finite-difference check of polar_uncertainty_weights' analytic
+    Jacobian against numerical differentiation."""
+    rng = np.random.default_rng(0)
+    r, az, el = 12.0, 0.3, -0.15
+    def fwd(r, az, el):
+        return np.array([r*math.cos(el)*math.sin(az),
+                          r*math.cos(el)*math.cos(az),
+                          r*math.sin(el)])
+    h = 1e-6
+    J_num = np.column_stack([
+        (fwd(r+h, az, el) - fwd(r-h, az, el)) / (2*h),
+        (fwd(r, az+h, el) - fwd(r, az-h, el)) / (2*h),
+        (fwd(r, az, el+h) - fwd(r, az, el-h)) / (2*h),
+    ])
+    caz, saz, cel, sel = math.cos(az), math.sin(az), math.cos(el), math.sin(el)
+    J_analytic = np.array([
+        [cel*saz,  r*cel*caz, -r*sel*saz],
+        [cel*caz, -r*cel*saz, -r*sel*caz],
+        [sel,       0.0,       r*cel],
+    ])
+    assert np.allclose(J_num, J_analytic, atol=1e-4), "Stage 4C polar Jacobian mismatch"
+    logging.info("[self_test] Stage 4C polar Jacobian PASS")
+
+
 def self_test():
     """Synthetic validation: known ego-velocity + a ground-scan-shaped point
     cloud (forward-and-below, per Sec. 1.3/1.4) + injected outliers (movers /
     multipath) -> recovered velocity must match ground truth."""
+    _selftest_jacobians()
     rng = np.random.default_rng(42)
     mount = TiltMount(theta_tilt_deg=40.0, lever_arm=np.array([0.12, 0.0, 0.05]))
     rio = DopplerRIO(mount, eps=0.15, iters=80, min_inlier_ratio=0.3)
@@ -554,7 +707,7 @@ def self_test():
     xyz_body_static = np.stack([
         r * np.cos(el) * np.cos(az), r * np.cos(el) * np.sin(az), r * np.sin(el)
     ], axis=1)
-    xyz_radar_static = (xyz_body_static - mount.lever_arm) @ mount.R  # inverse of Eq.(2)
+    xyz_radar_static = (xyz_body_static - mount.lever_arm) @ mount.R_static  # inverse of Eq.(2)
     u_body_static = xyz_body_static / np.linalg.norm(xyz_body_static, axis=1, keepdims=True)
     v_radial_static = -(u_body_static @ v_true) + rng.normal(0, 0.03, n_static)
 
@@ -564,7 +717,7 @@ def self_test():
     xyz_body_out = np.stack([
         r_o * np.cos(el_o) * np.cos(az_o), r_o * np.cos(el_o) * np.sin(az_o), r_o * np.sin(el_o)
     ], axis=1)
-    xyz_radar_out = (xyz_body_out - mount.lever_arm) @ mount.R
+    xyz_radar_out = (xyz_body_out - mount.lever_arm) @ mount.R_static
     v_radial_out = rng.uniform(-15, 15, n_outliers)  # unrelated to v_true: movers/ghosts
 
     xyz_radar = np.vstack([xyz_radar_static, xyz_radar_out])
@@ -597,7 +750,9 @@ if __name__ == '__main__':
     p.add_argument('--forward-ports', type=str, default=None,
                     help='comma-separated fan-out destinations, e.g. '
                          '"5006,5007,5008" or "127.0.0.1:5006,127.0.0.1:5007"')
-    p.add_argument('--theta-tilt-deg', type=float, default=90.0)
+    p.add_argument('--theta-tilt-deg', type=float, default=40.0,
+                    help="Physical mount pitch-down angle. MUST match the bench-measured "
+                         "value (see Stage 5A) -- do not run with the default in production.")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="U300 native X-axis polarity; flip to -1.0 if the bench "
                          "left/right validation (see TiltMount docstring) shows it inverted")
@@ -621,6 +776,16 @@ if __name__ == '__main__':
     p.add_argument('--imu-port', type=int, default=0,
                     help="UDP port to receive IMU data from imu_bridge.py "
                          "(default 0 = disabled, no rotation compensation)")
+    p.add_argument('--huber-delta', type=float, default=0.20,
+                    help="Stage 4A: Huber IRLS delta in m/s")
+    p.add_argument('--irls-max-iters', type=int, default=4, choices=[3, 4, 5])
+    p.add_argument('--irls-tol', type=float, default=1e-3, help="m/s, IRLS early-stop tolerance")
+    p.add_argument('--gross-outlier-mult', type=float, default=10.0,
+                    help="hard-exclude points beyond this many multiples of --huber-delta")
+    p.add_argument('--sigma-r', type=float, default=0.10, help="Stage 4C: range std-dev, meters")
+    p.add_argument('--sigma-az-deg', type=float, default=2.0, help="Stage 4C: azimuth std-dev, degrees")
+    p.add_argument('--sigma-el-deg', type=float, default=4.0, help="Stage 4C: elevation std-dev, degrees")
+    p.add_argument('--sigma-v', type=float, default=0.05, help="Stage 4C: Doppler measurement std-dev, m/s")
     args = p.parse_args()
 
     self_test() if args.selftest else run_udp_loop(args)

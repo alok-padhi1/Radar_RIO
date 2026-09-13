@@ -46,7 +46,7 @@ import time
 from pymavlink import mavutil
 
 
-RIO_PKT = struct.Struct('<dfffI')  # t, vx, vy, vz, n_inliers -- from doppler_rio.py
+RIO_PKT = struct.Struct('<dfffIfff')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz
 ALT_PKT = struct.Struct('<f')      # range_m -- from your altimeter radar's parser
 
 
@@ -116,12 +116,12 @@ def run(args):
     while True:
         try:
             data, _ = rio_sock.recvfrom(64)
-            t_frame, vx, vy, vz, n_inliers = RIO_PKT.unpack(data)
+            t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz = RIO_PKT.unpack(data)
             t_usec = int((time.time() - t0_wall) * 1e6)
             if args.autopilot == 'px4':
-                send_odometry_px4(conn, t_usec, vx, vy, vz)
+                send_odometry_px4(conn, t_usec, vx, vy, vz, cov_v_diag=(cxx, cyy, czz))
             else:
-                send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz)
+                send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=(cxx, cyy, czz))
         except socket.timeout:
             pass
 

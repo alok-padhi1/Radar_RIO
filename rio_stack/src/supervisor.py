@@ -117,7 +117,15 @@ def build_children(args) -> list[Child]:
                        "--eps", str(args.eps),
                        "--min-inlier-ratio", str(args.min_inlier_ratio),
                        "--cond-reject-threshold", str(args.cond_reject_threshold),
-                       "--deadband", str(args.deadband)]
+                       "--deadband", str(args.deadband),
+                       "--huber-delta", str(args.huber_delta),
+                       "--irls-max-iters", str(args.irls_max_iters),
+                       "--irls-tol", str(args.irls_tol),
+                       "--gross-outlier-mult", str(args.gross_outlier_mult),
+                       "--sigma-r", str(args.sigma_r),
+                       "--sigma-az-deg", str(args.sigma_az_deg),
+                       "--sigma-el-deg", str(args.sigma_el_deg),
+                       "--sigma-v", str(args.sigma_v)]
                        + (["--imu-port", "5020"] if args.imu_port else []),
               critical=True, start_delay_s=1.0),
         Child("slam", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "slam_node.py"),
@@ -131,10 +139,12 @@ def build_children(args) -> list[Child]:
                         "--min-correspondences", str(args.min_correspondences),
                         "--persistence-radius", str(args.persistence_radius),
                         "--persistence-min-hits", str(args.persistence_min_hits),
-                        "--window-s", str(args.window_s)]
+                        "--window-s", str(args.window_s),
+                        "--lambda-min-observable", str(args.lambda_min_observable),
+                        "--observable-ratio", str(args.observable_ratio)]
                         + (["--save-pcd", args.save_pcd] if args.save_pcd else [])
                         + (["--imu-port", "5021"] if args.imu_port else [])
-                        + (["--trust-imu-yaw"] if args.trust_imu_yaw else []),
+                        + (["--trust-imu-yaw"] if args.trust_imu_yaw else ["--no-trust-imu-yaw"]),
               critical=True, start_delay_s=1.0),
     ]
     if not args.no_mavlink:
@@ -188,11 +198,12 @@ def build_children(args) -> list[Child]:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--port', default=None, help="serial device for radar_fanout.py")
-    p.add_argument('--tilt-deg', type=float, default=90.0)
+    p.add_argument('--tilt-deg', type=float, default=40.0,
+                    help="Physical mount pitch-down angle. MUST match the bench-measured value.")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="passed to both rio and slam -- see doppler_rio.py's TiltMount "
                          "docstring for the bench validation procedure")
-    p.add_argument('--slam-decimation', type=int, default=1)
+    p.add_argument('--slam-decimation', type=int, default=4)
     # Bench/Stage-1 scale knobs (see FIELD_RUNBOOK.md / STAGE1_VERIFICATION.md).
     # Defaults here match production/flight scale -- override for a close-range
     # bench setup, e.g.: --voxel-size 0.10 --max-corr-dist 0.5
@@ -235,9 +246,22 @@ def main():
                          "Enables IMU rotation compensation via imu_bridge.py.")
     p.add_argument('--imu-baud', type=int, default=115200,
                     help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
-    p.add_argument('--trust-imu-yaw', action='store_true', default=True,
-                    help="Trust IMU absolute yaw (magnetometer) instead of GICP yaw for heading")
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
+                    help="Trust IMU/magnetometer yaw over raw GICP yaw (recommended; "
+                         "GICP yaw is unobservable in symmetric corridors)")
+    p.add_argument('--huber-delta', type=float, default=0.20)
+    p.add_argument('--irls-max-iters', type=int, default=4)
+    p.add_argument('--irls-tol', type=float, default=1e-3)
+    p.add_argument('--gross-outlier-mult', type=float, default=10.0)
+    p.add_argument('--sigma-r', type=float, default=0.10)
+    p.add_argument('--sigma-az-deg', type=float, default=2.0)
+    p.add_argument('--sigma-el-deg', type=float, default=4.0)
+    p.add_argument('--sigma-v', type=float, default=0.05)
+    p.add_argument('--lambda-min-observable', type=float, default=10.0)
+    p.add_argument('--observable-ratio', type=float, default=0.05)
     args = p.parse_args()
+
+    print(f"[supervisor] Starting with --tilt-deg {args.tilt_deg}")
 
     children = build_children(args)
     stop_flag = threading.Event()

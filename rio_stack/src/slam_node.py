@@ -35,6 +35,7 @@ import socket
 import struct
 import threading
 import time
+import queue
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -43,7 +44,7 @@ import open3d as o3d
 from filters import FilterConfig, PersistenceTracker, preprocess_frame
 
 UDP_HEADER = struct.Struct('<I')
-RIO_PKT = struct.Struct('<dfffI')   # t, vx, vy, vz, n_inliers -- matches doppler_rio.py FORWARD_PKT
+RIO_PKT = struct.Struct('<dfffIfff')   # t, vx, vy, vz, n_inliers, cxx, cyy, czz -- matches doppler_rio.py FORWARD_PKT
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
 IMU_PKT = struct.Struct('<dffffff')  # 32 bytes
 # t, n_map_points, fwd_obstacle_range_m ; followed by 16 float64 (4x4 row-major T)
@@ -113,15 +114,42 @@ class TiltMount:
         return xyz_radar @ self.R_static.T + self.lever_arm  # Eq.(2)
 
 
-def parse_udp_packet(data: bytes):
-    if len(data) < 4:
+def parse_udp_packet(data: bytes) -> np.ndarray | None:
+    if len(data) < UDP_HEADER.size:
         return None
-    (n,) = UDP_HEADER.unpack_from(data, 0)
-    expected = 4 + n * 16
-    if n == 0 or len(data) < expected:
+    (points_num,) = UDP_HEADER.unpack_from(data, 0)
+    expected_size = UDP_HEADER.size + points_num * 16
+    if len(data) != expected_size:
         return None
-    pts = np.frombuffer(data, dtype='<f4', count=n * 4, offset=4)
-    return pts.reshape(n, 4)
+    pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=UDP_HEADER.size)
+    return pts.reshape(-1, 4)
+
+
+class UdpReceiver(threading.Thread):
+    def __init__(self, sock: socket.socket, q_size: int = 100):
+        super().__init__(daemon=True)
+        self.sock = sock
+        self.q = queue.Queue(maxsize=q_size)
+
+    def run(self):
+        while True:
+            try:
+                data, _ = self.sock.recvfrom(65535)
+                try:
+                    self.q.put_nowait(data)
+                except queue.Full:
+                    pass
+            except Exception:
+                time.sleep(0.001)
+
+    def drain(self):
+        pkts = []
+        while True:
+            try:
+                pkts.append(self.q.get_nowait())
+            except queue.Empty:
+                break
+        return pkts
 
 
 # ------------------------------------------------------------ keyframe accumulator
@@ -199,13 +227,17 @@ class RadarSLAM:
                  gicp_max_corr_dist: float = 6.0, min_correspondences: int = 15,
                  filter_cfg: FilterConfig | None = None,
                  plane_threshold: float = 0.6,
-                 trust_imu_yaw: bool = True):
+                 trust_imu_yaw: bool = True,
+                 lambda_min_observable: float = 10.0,
+                 observable_ratio: float = 0.05):
         self.mount = mount
         self.plane_threshold = plane_threshold
         self.voxel_size = voxel_size
         self.gicp_max_corr_dist = gicp_max_corr_dist
         self.min_correspondences = min_correspondences
         self.trust_imu_yaw = trust_imu_yaw
+        self.lambda_min_observable = lambda_min_observable
+        self.observable_ratio = observable_ratio
 
         self.T_world = np.eye(4)          # current pose, world <- body
         self.map_cloud = o3d.geometry.PointCloud()
@@ -256,23 +288,71 @@ class RadarSLAM:
         T_out[:3, :3] = R_corrected
         return T_out
 
-    @staticmethod
-    def _is_planar_degenerate(pcd: o3d.geometry.PointCloud,
-                               threshold: float = 0.05) -> bool:
-        """Check if a point cloud is geometrically degenerate (flat plane).
-
-        Computes the eigenvalues of the 3x3 spatial covariance matrix.
-        If the smallest eigenvalue is much smaller than the second, the
-        cloud is essentially planar and GICP cannot reliably resolve
-        translation along the plane normal (typically Z on flat ground).
+    def _build_point_to_plane_hessian(self, source, target, correspondence_set, T):
+        """Stage 4B: Build the 6x6 point-to-plane information matrix from GICP correspondences.
+        
+        Unlike Open3D's get_information_matrix_from_point_clouds (which uses
+        point-to-point counting and CANNOT detect translational degeneracy),
+        this builds H = Σ J_i^T J_i from point-to-plane Jacobians:
+          J_i = [(R·p_i) × n_i | n_i]
+        where p_i is the transformed source point and n_i is the target normal.
         """
-        pts = np.asarray(pcd.points)
-        if len(pts) < 10:
-            return True
-        cov = np.cov(pts.T)  # 3x3
-        eigvals = np.linalg.eigvalsh(cov)  # sorted ascending
-        ratio = eigvals[0] / max(eigvals[1], 1e-6)
-        return ratio < threshold
+        pts = np.asarray(source.points)
+        tgt_normals = np.asarray(target.normals)
+        corr = np.asarray(correspondence_set)
+        
+        if len(corr) == 0:
+            return np.zeros((6, 6))
+            
+        src_idx = corr[:, 0]
+        tgt_idx = corr[:, 1]
+        
+        p = pts[src_idx]
+        n = tgt_normals[tgt_idx]
+        
+        # Transform source points by current GICP estimate T
+        R = T[:3, :3]
+        p_rot = p @ R.T  # (N, 3)
+        
+        # J_rot = p_rot × n
+        J_rot = np.cross(p_rot, n)
+        J = np.hstack((J_rot, n))  # (N, 6)
+        
+        r_ref = 10.0
+        r2 = np.clip(np.sum(p**2, axis=1), r_ref**2, None)
+        W = (r_ref ** 2) / r2
+        H = J.T @ (W[:, None] * J)  # (6, 6)
+        return H
+
+    def _project_onto_observable_subspace(self, T_pred: np.ndarray, T_gicp: np.ndarray,
+                                           H: np.ndarray):
+        """Stage 4B: accept GICP's translation correction only along
+        eigen-directions of its own information matrix that are actually
+        well-constrained; unobservable directions keep the RIO/IMU-predicted
+        prior.
+        """
+        H_tt = H[3:6, 3:6]
+        H_tt = 0.5 * (H_tt + H_tt.T)  # enforce exact symmetry (float safety before eigh)
+        try:
+            eigvals, V = np.linalg.eigh(H_tt)
+        except np.linalg.LinAlgError:
+            T_out = T_pred.copy()
+            T_out[:3, :3] = T_gicp[:3, :3]
+            return T_out, np.zeros(3, dtype=bool)
+
+        eigvals = np.clip(eigvals, 0.0, None)          # PSD safety net
+        eig_max = max(float(eigvals.max()), 1e-9)
+        observable = (eigvals >= self.lambda_min_observable) & (eigvals >= self.observable_ratio * eig_max)
+
+        t_pred_w = T_pred[:3, 3]
+        t_gicp_w = T_gicp[:3, 3]
+        delta_eig = V.T @ (t_gicp_w - t_pred_w)
+        delta_eig_filtered = delta_eig * observable
+        delta_filtered = V @ delta_eig_filtered
+
+        T_out = T_gicp.copy()          # GICP's rotation is kept as-is
+        T_out[:3, 3] = t_pred_w + delta_filtered
+        return T_out, observable
 
     def _ground_plane_split(self, pcd: o3d.geometry.PointCloud):
         """Sec. 2.3: separate the dominant ground plane from off-plane structure.
@@ -397,65 +477,47 @@ class RadarSLAM:
         if self.last_attitude is not None:
             T_pred = self._gravity_correct(T_pred)
 
-        total_pts = max(1, len(source.points))
-        off_plane_ratio = len(off_plane.points) / total_pts
-        is_degenerate = (off_plane_ratio < 0.20) or self._is_planar_degenerate(source)
+        # -- Stage 4B: GICP always runs; degeneracy is now DISCOVERED from its
+        #    own Hessian, not predicted in advance from point-cloud shape. --
+        try:
+            gicp_t0 = time.monotonic()
+            result = o3d.pipelines.registration.registration_generalized_icp(
+                source, target, self.gicp_max_corr_dist, T_pred,
+                o3d.pipelines.registration.TransformationEstimationForGeneralizedICP(),
+                o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=50))
+            gicp_ms = (time.monotonic() - gicp_t0) * 1000.0
+            if gicp_ms > 150:
+                print(f"[slam_node] ⚠️  GICP took {gicp_ms:.0f}ms "
+                      f"(source={len(source.points)}, target={len(target.points)})")
+        except RuntimeError as e:
+            return {'valid': False, 'reason': f'gicp_exception: {e}'}
 
-        if is_degenerate and self.last_v_body is not None:
-            # Degenerate planar geometry (e.g., flat floor). 3D GICP cannot observe
-            # Z-translation or pitch/roll rotation, and will inject massive noise.
-            # Bypass GICP entirely and use pure RIO dead-reckoning.
+        n_corr = len(result.correspondence_set)
+        if n_corr < self.min_correspondences:
+            # Reject, don't force -- same philosophy as doppler_rio.py's RANSAC gate.
+            return {'valid': False, 'reason': 'insufficient_correspondences', 'n_corr': n_corr,
+                    'fitness': result.fitness, 'rmse': result.inlier_rmse}
+        
+        try:
+            if not source.has_normals():
+                source.estimate_normals(o3d.geometry.KDTreeSearchParamKNN(knn=8))
+            if not target.has_normals():
+                target.estimate_normals(o3d.geometry.KDTreeSearchParamKNN(knn=8))
+            H = self._build_point_to_plane_hessian(source, target, result.correspondence_set, result.transformation)
+            self.T_world, observable_axes = self._project_onto_observable_subspace(
+                T_pred, result.transformation, H)
+            n_observable = int(observable_axes.sum())
+        except Exception as e:
+            logging.warning(f"[slam_node] Hessian observability check failed ({e}); "
+                             f"trusting RIO/IMU prior for this keyframe's translation.")
             self.T_world = T_pred
-            n_corr = 0
-            fitness = 1.0
-            rmse = 0.0
-        else:
-            try:
-                gicp_t0 = time.monotonic()
-                result = o3d.pipelines.registration.registration_generalized_icp(
-                    source, target, self.gicp_max_corr_dist, T_pred,
-                    o3d.pipelines.registration.TransformationEstimationForGeneralizedICP(),
-                    o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=50))
-                gicp_ms = (time.monotonic() - gicp_t0) * 1000.0
-                if gicp_ms > 150:
-                    print(f"[slam_node] ⚠️  GICP took {gicp_ms:.0f}ms "
-                          f"(source={len(source.points)}, target={len(target.points)})")
-            except RuntimeError as e:
-                return {'valid': False, 'reason': f'gicp_exception: {e}'}
+            self.T_world[:3, :3] = result.transformation[:3, :3]
+            n_observable = 0
 
-            n_corr = len(result.correspondence_set)
-            if n_corr < self.min_correspondences:
-                # Reject, don't force -- same philosophy as doppler_rio.py's RANSAC gate.
-                return {'valid': False, 'reason': 'insufficient_correspondences', 'n_corr': n_corr,
-                        'fitness': result.fitness, 'rmse': result.inlier_rmse}
-            
-            # GICP matched local source to global target map, so result IS the new absolute pose.
-            T_icp = result.transformation
-            
-            # ── IMU Gravity Correction (Stage 3) ──
-            if self.last_attitude is not None:
-                T_icp = self._gravity_correct(T_icp)
+        fitness, rmse = result.fitness, result.inlier_rmse
 
-            # FIX: Clamp GICP hallucinations on featureless walls.
-            delta_T = np.linalg.inv(T_pred) @ T_icp
-            dx, dy, dz = delta_T[0, 3], delta_T[1, 3], delta_T[2, 3]
-            
-            # If GICP hallucinated NaNs or massive translations, bypass it completely
-            if np.any(np.isnan(T_icp)) or abs(dx) > 10.0 or abs(dy) > 10.0:
-                self.T_world = T_pred
-                n_corr = 0
-                fitness = 0.0
-                rmse = 0.0
-            else:
-                dx = np.clip(dx, -0.20, 0.20)
-                dy = np.clip(dy, -0.20, 0.20)
-                dz = 0.0  # Trust RIO 100% for Z translation
-                
-                delta_T[:3, 3] = [dx, dy, dz]
-                self.T_world = T_pred @ delta_T
-                
-                fitness = result.fitness
-                rmse = result.inlier_rmse
+        if self.last_attitude is not None:
+            self.T_world = self._gravity_correct(self.T_world)
 
         self.pose_chain.append(self.T_world.copy())
         self._merge_into_map(source, self.T_world)
@@ -463,6 +525,7 @@ class RadarSLAM:
         return {
             'valid': True, 'T': self.T_world.copy(), 't': t,
             'n_corr': n_corr, 'fitness': fitness, 'rmse': rmse,
+            'n_observable_axes': n_observable,
             'n_ground': len(ground.points), 'n_off_plane': len(off_plane.points),
             'n_raw': pre.n_raw, 'n_final': pre.n_final, 'fwd_range': fwd_range,
         }
@@ -517,7 +580,9 @@ def run(args):
                       min_correspondences=args.min_correspondences,
                       filter_cfg=filter_cfg,
                       plane_threshold=args.plane_threshold,
-                      trust_imu_yaw=args.trust_imu_yaw)
+                      trust_imu_yaw=args.trust_imu_yaw,
+                      lambda_min_observable=args.lambda_min_observable,
+                      observable_ratio=args.observable_ratio)
     accum = KeyframeAccumulator(window_s=args.window_s)
 
     points_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -528,7 +593,7 @@ def run(args):
     if args.rio_port:
         rio_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         rio_sock.bind((args.rio_ip, args.rio_port))
-        rio_sock.setblocking(False)
+        rio_sock.settimeout(0.5)
 
     # IMU listener (optional, Stage 3+): same latest-value-grab pattern as RIO
     imu_sock = None
@@ -536,8 +601,8 @@ def run(args):
     latest_attitude = None  # (3,) np.ndarray or None — fused [roll, pitch, yaw]
     if args.imu_port and args.imu_port > 0:
         imu_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        imu_sock.bind((args.listen_ip, args.imu_port))
-        imu_sock.setblocking(False)
+        imu_sock.bind((args.imu_ip, args.imu_port))
+        imu_sock.settimeout(0.5)
         print(f"[slam_node] IMU listener on {args.listen_ip}:{args.imu_port}")
 
     # Parse comma-separated pose ports (e.g. "5011,5014") for multi-consumer
@@ -550,52 +615,56 @@ def run(args):
                 pose_ports.append(int(tok))
     pose_out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) if pose_ports else None
 
+    # Background receivers to avoid UDP buffer overflows during GICP blocking
+    rio_receiver = UdpReceiver(rio_sock) if rio_sock else None
+    if rio_receiver: rio_receiver.start()
+    imu_receiver = UdpReceiver(imu_sock) if imu_sock else None
+    if imu_receiver: imu_receiver.start()
+    points_receiver = UdpReceiver(points_sock)
+    points_receiver.start()
+
     print(f"[slam_node] listening points on {args.listen_ip}:{args.listen_port}, "
           f"theta_tilt={args.theta_tilt_deg} deg, keyframe window={args.window_s}s")
 
     frame_i = 0
+    last_imu_t = 0.0
     try:
         while True:
             # Drain any pending RIO velocity updates (non-blocking, best-effort).
-            if rio_sock is not None:
-                try:
-                    while True:
-                        data, _ = rio_sock.recvfrom(64)
-                        _t, vx, vy, vz, _n = RIO_PKT.unpack(data)
-                        slam.update_velocity(np.array([vx, vy, vz]))
-                except BlockingIOError:
-                    pass
+            if rio_receiver is not None:
+                for data in rio_receiver.drain():
+                    _t, vx, vy, vz, _n, _cxx, _cyy, _czz = RIO_PKT.unpack(data)
+                    slam.update_velocity(np.array([vx, vy, vz]))
 
             # Drain any pending IMU updates (non-blocking, latest-value grab).
-            # Now stores BOTH gyroscope (for deskew) AND fused attitude (for
-            # gravity alignment). The attitude [roll, pitch, yaw] is the Cube
-            # Orange's EKF-fused estimate of the body's orientation relative
-            # to the Earth frame — this is what kills Z-drift.
-            if imu_sock is not None:
-                try:
-                    while True:
-                        data, _ = imu_sock.recvfrom(64)
-                        if len(data) >= IMU_PKT.size:
-                            _t, _r, _p, _y, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
-                            latest_omega = np.array([ox, oy, oz])
-                            latest_attitude = np.array([_r, _p, _y])
-                            slam.update_attitude(latest_attitude)
-                except BlockingIOError:
-                    pass
+            if imu_receiver is not None:
+                for data in imu_receiver.drain():
+                    if len(data) >= IMU_PKT.size:
+                        _t, _r, _p, _y, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
+                        latest_omega = np.array([ox, oy, oz])
+                        latest_attitude = np.array([_r, _p, _y])
+                        slam.update_attitude(latest_attitude)
+                        last_imu_t = time.monotonic()
+                        
+            if latest_attitude is not None and time.monotonic() - last_imu_t > 0.1:
+                latest_attitude = None
+                latest_omega = None
+                slam.last_attitude = None
 
-            try:
-                data, _ = points_sock.recvfrom(65535)
-            except socket.timeout:
+            pkts = points_receiver.drain()
+            if not pkts:
+                time.sleep(0.005)
                 continue
-
-            pts_radar = parse_udp_packet(data)
-            if pts_radar is None:
-                continue
-            t = time.monotonic()
-            xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude)
-            v_radial = pts_radar[:, 3]
-            accum.add(t, xyz_body, v_radial)
-            frame_i += 1
+            
+            for data in pkts:
+                pts_radar = parse_udp_packet(data)
+                if pts_radar is None:
+                    continue
+                t = time.monotonic()
+                xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude)
+                v_radial = pts_radar[:, 3]
+                accum.add(t, xyz_body, v_radial)
+                frame_i += 1
 
             if not accum.ready(min_frames=args.min_frames_per_keyframe):
                 continue
@@ -617,6 +686,8 @@ def run(args):
                       f"final={result.get('n_final')}  map_pts={n_map} "
                       f"corr={result.get('n_corr', '-')} "
                       f"fitness={result.get('fitness', 0):.3f} "
+                      f"rmse={result.get('rmse', 0):.3f} "
+                      f"obs_axes={result.get('n_observable_axes', 0)}/3 "
                       f"ground/off_plane={result.get('n_ground')}/{result.get('n_off_plane')} "
                       f"fwd_range={fwd:.1f}m")
                 if pose_out is not None:
@@ -662,8 +733,10 @@ def main():
     p.add_argument('--pose-port', default='5011',
                     help="Comma-separated UDP ports for pose forwarding "
                          "(e.g. '5011,5014'). 0 to disable.")
-    p.add_argument('--theta-tilt-deg', type=float, default=90.0)
-    p.add_argument('--trust-imu-yaw', action='store_true', default=True,
+    p.add_argument('--theta-tilt-deg', type=float, default=40.0,
+                    help="Physical mount pitch-down angle. MUST match the bench-measured "
+                         "value (see Stage 5A) -- do not run with the default in production.")
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
                     help="Trust IMU absolute yaw (magnetometer) instead of GICP yaw for heading")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="must match doppler_rio.py's --lateral-sign exactly")
@@ -700,6 +773,10 @@ def main():
     p.add_argument('--imu-port', type=int, default=0,
                     help="UDP port to receive IMU data from imu_bridge.py "
                          "(default 0 = disabled, no rotation deskew)")
+    p.add_argument('--lambda-min-observable', type=float, default=10.0,
+                    help="Stage 4B: Min eigenvalue of point-to-plane Hessian to consider an axis observable")
+    p.add_argument('--observable-ratio', type=float, default=0.05,
+                    help="Stage 4B: Min ratio to max eigenvalue to consider an axis observable")
     args = p.parse_args()
     run(args)
 

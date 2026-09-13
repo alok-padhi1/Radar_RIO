@@ -37,7 +37,7 @@ import numpy as np
 import open3d as o3d
 
 UDP_HEADER = struct.Struct('<I')
-RIO_PKT = struct.Struct('<dfffI')
+RIO_PKT = struct.Struct('<dfffIfff')
 POSE_PKT_HDR = struct.Struct('<dId')  # t, n_map_points, fwd_obstacle_range ; + 16xfloat64
 
 
@@ -80,7 +80,7 @@ def parse_pose_packet(data: bytes):
 def parse_rio_packet(data: bytes):
     if len(data) < RIO_PKT.size:
         return None
-    t, vx, vy, vz, inliers = RIO_PKT.unpack_from(data, 0)
+    t, vx, vy, vz, inliers, _cxx, _cyy, _czz = RIO_PKT.unpack_from(data, 0)
     return t, np.array([vx, vy, vz]), inliers
 
 

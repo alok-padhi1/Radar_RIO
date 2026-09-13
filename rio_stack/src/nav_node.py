@@ -43,7 +43,7 @@ from enum import Enum, auto
 import numpy as np
 from pymavlink import mavutil
 
-RIO_PKT = struct.Struct('<dfffI')          # t, vx, vy, vz, n_inliers
+RIO_PKT = struct.Struct('<dfffIfff')          # t, vx, vy, vz, n_inliers, cxx, cyy, czz
 POSE_PKT_HDR = struct.Struct('<dId')       # t, n_map_points, fwd_range ; + 16 float64 T
 
 
@@ -208,8 +208,9 @@ class PoseTracker:
         self._last_rio_t = None
 
     def on_slam_pose(self, t_slam: float, T_world_body: np.ndarray, fwd_range: float):
-        # T_world_body: 4x4, body->world. Position is the translation column.
-        self.pose.position_enu = T_world_body[:3, 3].copy()
+        # T_world_body: 4x4, body->world. Position is the translation column (NED).
+        p_ned = T_world_body[:3, 3].copy()
+        self.pose.position_enu = np.array([p_ned[1], p_ned[0], -p_ned[2]])  # NED -> ENU
         self.pose.fwd_obstacle_range_m = fwd_range
         self.pose.t_slam = t_slam
         self.pose.t_local = time.monotonic()
@@ -234,12 +235,13 @@ class PoseTracker:
             return
 
         R = body_to_nav_rotation(attitude.roll, attitude.pitch, attitude.yaw)
-        v_nav = R @ v_body
+        v_ned = R @ v_body
+        v_enu = np.array([v_ned[1], v_ned[0], -v_ned[2]])                    # NED -> ENU
 
         if self._last_rio_t is not None and self.pose.have_pose:
             dt = t - self._last_rio_t
             if 0 < dt < 0.5:
-                self.pose.position_enu = self.pose.position_enu + v_nav * dt
+                self.pose.position_enu = self.pose.position_enu + v_enu * dt
                 self.pose.t_local = time.monotonic()
         self._last_rio_t = t
 
@@ -430,7 +432,7 @@ class NavNode:
         try:
             while True:
                 data, _ = self.rio_sock.recvfrom(64)
-                t, vx, vy, vz, _n = RIO_PKT.unpack(data)
+                t, vx, vy, vz, _n, _cxx, _cyy, _czz = RIO_PKT.unpack(data)
                 self.tracker.on_rio_velocity(t, np.array([vx, vy, vz]), att)
         except BlockingIOError:
             pass

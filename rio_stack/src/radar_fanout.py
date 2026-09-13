@@ -297,7 +297,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--port', default=None, help="serial device; omit to be prompted")
     p.add_argument('--baud', type=int, default=921600)
-    p.add_argument('--slam-decimation', type=int, default=1,
+    p.add_argument('--slam-decimation', type=int, default=4,
                     help="enqueue 1-in-N frames to the SLAM path (default 1: full 20Hz stream)")
     p.add_argument('--rio-ip', default='127.0.0.1')
     p.add_argument('--rio-port', type=int, default=5005,
