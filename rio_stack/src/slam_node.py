@@ -198,12 +198,14 @@ class RadarSLAM:
     def __init__(self, mount: TiltMount, voxel_size: float = 1.5,
                  gicp_max_corr_dist: float = 6.0, min_correspondences: int = 15,
                  filter_cfg: FilterConfig | None = None,
-                 plane_threshold: float = 0.6):
+                 plane_threshold: float = 0.6,
+                 trust_imu_yaw: bool = True):
         self.mount = mount
         self.plane_threshold = plane_threshold
         self.voxel_size = voxel_size
         self.gicp_max_corr_dist = gicp_max_corr_dist
         self.min_correspondences = min_correspondences
+        self.trust_imu_yaw = trust_imu_yaw
 
         self.T_world = np.eye(4)          # current pose, world <- body
         self.map_cloud = o3d.geometry.PointCloud()
@@ -219,6 +221,7 @@ class RadarSLAM:
         # FilterConfig as the source of truth avoids the two silently drifting.
         self.filter_cfg = filter_cfg or FilterConfig(voxel_size_m=voxel_size)
         self.persistence_tracker = PersistenceTracker(self.filter_cfg)
+        self.initial_yaw_imu = None
 
     def update_velocity(self, v_body: np.ndarray):
         self.last_v_body = v_body
@@ -236,6 +239,9 @@ class RadarSLAM:
         # Extract yaw from GICP's rotation matrix (ZYX decomposition)
         R_gicp = T[:3, :3]
         yaw_gicp = math.atan2(R_gicp[1, 0], R_gicp[0, 0])
+
+        if self.trust_imu_yaw and self.last_attitude is not None:
+            yaw_gicp = self.last_attitude[2]
 
         cy, sy = math.cos(yaw_gicp),  math.sin(yaw_gicp)
 
@@ -315,12 +321,12 @@ class RadarSLAM:
         return float(np.min(r[in_cone]))
 
     def process_keyframe(self, xyz_body: np.ndarray, v_radial: np.ndarray,
-                          t: float) -> dict:
+                          t: float, omega: np.ndarray = None) -> dict:
         if xyz_body.shape[0] < 8:
             return {'valid': False, 'reason': 'too_few_points'}
 
         pre = preprocess_frame(xyz_body, v_radial, self.persistence_tracker,
-                                self.last_v_body, self.filter_cfg)
+                                self.last_v_body, omega, self.filter_cfg)
         pcd = pre.pcd
         if len(pcd.points) < 8:
             return {
@@ -341,8 +347,17 @@ class RadarSLAM:
 
         if len(self.map_cloud.points) < 8:
             # Bootstrap: first keyframe seeds the map at the current pose.
+            if self.trust_imu_yaw and self.last_attitude is not None:
+                yaw_imu = self.last_attitude[2]
+                cy, sy = math.cos(yaw_imu), math.sin(yaw_imu)
+                self.T_world[:3, :3] = np.array([
+                    [cy, -sy, 0.0],
+                    [sy,  cy, 0.0],
+                    [0.0, 0.0, 1.0]
+                ])
+                
             self._merge_into_map(source, self.T_world)
-            self.pose_chain.append(self.T_world.copy())
+            self.pose_chain[0] = self.T_world.copy()
             return {'valid': True, 'bootstrap': True, 'T': self.T_world.copy(),
                     'n_ground': len(ground.points), 'n_off_plane': len(off_plane.points),
                     'n_raw': pre.n_raw, 'n_final': pre.n_final, 'fwd_range': fwd_range}
@@ -364,6 +379,18 @@ class RadarSLAM:
             # so we rotate it into the world frame before adding)
             t_shift = self.T_world[:3, :3] @ (self.last_v_body * dt)
             T_pred[:3, 3] += t_shift
+            
+            if omega is not None:
+                # FIX: Integrate gyro yaw to prevent the "frozen yaw" bug when
+                # walking down a featureless hallway.
+                dyaw = omega[2] * dt
+                cy, sy = math.cos(dyaw), math.sin(dyaw)
+                R_yaw = np.array([
+                    [ cy, -sy, 0.0],
+                    [ sy,  cy, 0.0],
+                    [0.0, 0.0, 1.0],
+                ])
+                T_pred[:3, :3] = T_pred[:3, :3] @ R_yaw
 
         # Inject IMU gravity into the initial guess so GICP starts searching
         # from a gravity-consistent orientation (prevents tilted local minima).
@@ -403,17 +430,32 @@ class RadarSLAM:
                         'fitness': result.fitness, 'rmse': result.inlier_rmse}
             
             # GICP matched local source to global target map, so result IS the new absolute pose.
-            self.T_world = result.transformation
-            fitness = result.fitness
-            rmse = result.inlier_rmse
+            T_icp = result.transformation
+            
+            # ── IMU Gravity Correction (Stage 3) ──
+            if self.last_attitude is not None:
+                T_icp = self._gravity_correct(T_icp)
 
-        # ── IMU Gravity Correction (Stage 3) ──
-        # After GICP (or RIO dead-reckoning fallback) sets the pose, clamp
-        # pitch and roll to the IMU's measured gravity vector. This prevents
-        # the microscopic tilt errors from GICP's flat-ground degeneracy from
-        # accumulating into catastrophic Z-drift (observed: 33 m in 73 s).
-        if self.last_attitude is not None:
-            self.T_world = self._gravity_correct(self.T_world)
+            # FIX: Clamp GICP hallucinations on featureless walls.
+            delta_T = np.linalg.inv(T_pred) @ T_icp
+            dx, dy, dz = delta_T[0, 3], delta_T[1, 3], delta_T[2, 3]
+            
+            # If GICP hallucinated NaNs or massive translations, bypass it completely
+            if np.any(np.isnan(T_icp)) or abs(dx) > 10.0 or abs(dy) > 10.0:
+                self.T_world = T_pred
+                n_corr = 0
+                fitness = 0.0
+                rmse = 0.0
+            else:
+                dx = np.clip(dx, -0.20, 0.20)
+                dy = np.clip(dy, -0.20, 0.20)
+                dz = 0.0  # Trust RIO 100% for Z translation
+                
+                delta_T[:3, 3] = [dx, dy, dz]
+                self.T_world = T_pred @ delta_T
+                
+                fitness = result.fitness
+                rmse = result.inlier_rmse
 
         self.pose_chain.append(self.T_world.copy())
         self._merge_into_map(source, self.T_world)
@@ -474,7 +516,8 @@ def run(args):
                       gicp_max_corr_dist=args.max_corr_dist,
                       min_correspondences=args.min_correspondences,
                       filter_cfg=filter_cfg,
-                      plane_threshold=args.plane_threshold)
+                      plane_threshold=args.plane_threshold,
+                      trust_imu_yaw=args.trust_imu_yaw)
     accum = KeyframeAccumulator(window_s=args.window_s)
 
     points_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -566,7 +609,7 @@ def run(args):
             accum.clear()
             accum.t_last_kf = t
 
-            result = slam.process_keyframe(merged_xyz, merged_v, t)
+            result = slam.process_keyframe(merged_xyz, merged_v, t, omega=omega_leveled)
             if result['valid']:
                 n_map = len(slam.map_cloud.points)
                 fwd = result.get('fwd_range', float('inf'))
@@ -619,7 +662,9 @@ def main():
     p.add_argument('--pose-port', default='5011',
                     help="Comma-separated UDP ports for pose forwarding "
                          "(e.g. '5011,5014'). 0 to disable.")
-    p.add_argument('--theta-tilt-deg', type=float, default=40.0)
+    p.add_argument('--theta-tilt-deg', type=float, default=90.0)
+    p.add_argument('--trust-imu-yaw', action='store_true', default=True,
+                    help="Trust IMU absolute yaw (magnetometer) instead of GICP yaw for heading")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="must match doppler_rio.py's --lateral-sign exactly")
     p.add_argument('--lever-x', type=float, default=0.12)

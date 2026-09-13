@@ -597,7 +597,7 @@ if __name__ == '__main__':
     p.add_argument('--forward-ports', type=str, default=None,
                     help='comma-separated fan-out destinations, e.g. '
                          '"5006,5007,5008" or "127.0.0.1:5006,127.0.0.1:5007"')
-    p.add_argument('--theta-tilt-deg', type=float, default=40.0)
+    p.add_argument('--theta-tilt-deg', type=float, default=90.0)
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="U300 native X-axis polarity; flip to -1.0 if the bench "
                          "left/right validation (see TiltMount docstring) shows it inverted")

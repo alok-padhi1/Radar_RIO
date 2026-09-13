@@ -133,7 +133,8 @@ def build_children(args) -> list[Child]:
                         "--persistence-min-hits", str(args.persistence_min_hits),
                         "--window-s", str(args.window_s)]
                         + (["--save-pcd", args.save_pcd] if args.save_pcd else [])
-                        + (["--imu-port", "5021"] if args.imu_port else []),
+                        + (["--imu-port", "5021"] if args.imu_port else [])
+                        + (["--trust-imu-yaw"] if args.trust_imu_yaw else []),
               critical=True, start_delay_s=1.0),
     ]
     if not args.no_mavlink:
@@ -187,7 +188,7 @@ def build_children(args) -> list[Child]:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--port', default=None, help="serial device for radar_fanout.py")
-    p.add_argument('--tilt-deg', type=float, default=40.0)
+    p.add_argument('--tilt-deg', type=float, default=90.0)
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="passed to both rio and slam -- see doppler_rio.py's TiltMount "
                          "docstring for the bench validation procedure")
@@ -234,6 +235,8 @@ def main():
                          "Enables IMU rotation compensation via imu_bridge.py.")
     p.add_argument('--imu-baud', type=int, default=115200,
                     help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
+    p.add_argument('--trust-imu-yaw', action='store_true', default=True,
+                    help="Trust IMU absolute yaw (magnetometer) instead of GICP yaw for heading")
     args = p.parse_args()
 
     children = build_children(args)

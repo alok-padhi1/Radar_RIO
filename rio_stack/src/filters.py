@@ -88,6 +88,7 @@ def gate_range(xyz: np.ndarray, cfg: FilterConfig) -> np.ndarray:
 
 def gate_doppler_consistency(xyz: np.ndarray, v_radial: np.ndarray,
                               v_body_hint: np.ndarray | None,
+                              omega_hint: np.ndarray | None,
                               cfg: FilterConfig) -> np.ndarray:
     """Rejects points whose measured radial velocity disagrees with the
     static-world Doppler model V_i = -u_i^T v_body (Eq. 7 of the monograph).
@@ -106,7 +107,14 @@ def gate_doppler_consistency(xyz: np.ndarray, v_radial: np.ndarray,
     r = np.clip(r, 1e-3, None)
     u = xyz / r[:, None]
     v_hint = v_body_hint if v_body_hint is not None else np.zeros(3)
-    predicted = -(u @ v_hint)
+    
+    if omega_hint is not None:
+        omega_cross_p = np.cross(omega_hint, xyz)
+        v_rot_comp = np.sum(u * omega_cross_p, axis=1)
+        predicted = -(u @ v_hint) - v_rot_comp
+    else:
+        predicted = -(u @ v_hint)
+        
     residual = np.abs(v_radial - predicted)
     return residual < cfg.doppler_eps_mps
 
@@ -194,6 +202,7 @@ class PreprocessResult:
 def preprocess_frame(xyz_body: np.ndarray, v_radial: np.ndarray,
                       tracker: PersistenceTracker,
                       v_body_hint: np.ndarray | None,
+                      omega_hint: np.ndarray | None,
                       cfg: FilterConfig) -> PreprocessResult:
     n_raw = len(xyz_body)
 
@@ -201,7 +210,7 @@ def preprocess_frame(xyz_body: np.ndarray, v_radial: np.ndarray,
     xyz1, v1 = xyz_body[keep], v_radial[keep]
     n_after_range = len(xyz1)
 
-    keep = gate_doppler_consistency(xyz1, v1, v_body_hint, cfg)
+    keep = gate_doppler_consistency(xyz1, v1, v_body_hint, omega_hint, cfg)
     xyz2 = xyz1[keep]
     n_after_doppler = len(xyz2)
 
