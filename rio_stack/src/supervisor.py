@@ -141,10 +141,12 @@ def build_children(args) -> list[Child]:
                         "--persistence-min-hits", str(args.persistence_min_hits),
                         "--window-s", str(args.window_s),
                         "--lambda-min-observable", str(args.lambda_min_observable),
-                        "--observable-ratio", str(args.observable_ratio)]
+                        "--observable-ratio", str(args.observable_ratio),
+                        "--doppler-eps", str(args.eps)]
                         + (["--save-pcd", args.save_pcd] if args.save_pcd else [])
                         + (["--imu-port", "5021"] if args.imu_port else [])
-                        + (["--trust-imu-yaw"] if args.trust_imu_yaw else ["--no-trust-imu-yaw"]),
+                        + (["--trust-imu-yaw"] if args.trust_imu_yaw else ["--no-trust-imu-yaw"])
+                        + (["--imu-level-points"] if args.imu_level_points else ["--no-imu-level-points"]),
               critical=True, start_delay_s=1.0),
     ]
     if not args.no_mavlink:
@@ -190,6 +192,7 @@ def build_children(args) -> list[Child]:
             "imu", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "imu_bridge.py"),
                     "--port", args.imu_port,
                     "--baud", str(args.imu_baud),
+                    "--pitch-offset-deg", str(args.pitch_offset_deg),
                     "--dest-ports", ",".join(imu_dest_ports)],
             critical=False, start_delay_s=0.5))
     return children
@@ -203,7 +206,7 @@ def main():
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="passed to both rio and slam -- see doppler_rio.py's TiltMount "
                          "docstring for the bench validation procedure")
-    p.add_argument('--slam-decimation', type=int, default=4)
+    p.add_argument('--slam-decimation', type=int, default=2)
     # Bench/Stage-1 scale knobs (see FIELD_RUNBOOK.md / STAGE1_VERIFICATION.md).
     # Defaults here match production/flight scale -- override for a close-range
     # bench setup, e.g.: --voxel-size 0.10 --max-corr-dist 0.5
@@ -213,7 +216,7 @@ def main():
     p.add_argument('--min-correspondences', type=int, default=15)
     p.add_argument('--persistence-radius', type=float, default=1.0)
     p.add_argument('--persistence-min-hits', type=int, default=2)
-    p.add_argument('--window-s', type=float, default=0.3)
+    p.add_argument('--window-s', type=float, default=0.5)
     p.add_argument('--eps', type=float, default=0.20, help="doppler_rio.py Doppler tolerance m/s")
     p.add_argument('--min-inlier-ratio', type=float, default=0.25, help="doppler_rio.py minimum inlier ratio")
     p.add_argument('--cond-reject-threshold', type=float, default=12.0, help="doppler_rio.py condition number reject threshold")
@@ -246,9 +249,15 @@ def main():
                          "Enables IMU rotation compensation via imu_bridge.py.")
     p.add_argument('--imu-baud', type=int, default=115200,
                     help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
-    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
-                    help="Trust IMU/magnetometer yaw over raw GICP yaw (recommended; "
-                         "GICP yaw is unobservable in symmetric corridors)")
+    p.add_argument('--pitch-offset-deg', type=float, default=0.0,
+                    help="Pitch offset to calibrate out FC mounting bias (passed to imu_bridge)")
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
+                    help="Trust IMU/magnetometer yaw over raw GICP yaw (recommended ON — "
+                         "GICP yaw is unobservable in featureless corridors/open terrain)")
+    p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=False,
+                    help="Apply IMU pitch+roll leveling to SLAM point cloud coordinates. "
+                         "Default OFF for handheld/uncalibrated AHRS mounts. "
+                         "Enable only when AHRS trim is calibrated for the physical mount.")
     p.add_argument('--huber-delta', type=float, default=0.20)
     p.add_argument('--irls-max-iters', type=int, default=4)
     p.add_argument('--irls-tol', type=float, default=1e-3)
@@ -257,8 +266,8 @@ def main():
     p.add_argument('--sigma-az-deg', type=float, default=2.0)
     p.add_argument('--sigma-el-deg', type=float, default=4.0)
     p.add_argument('--sigma-v', type=float, default=0.05)
-    p.add_argument('--lambda-min-observable', type=float, default=10.0)
-    p.add_argument('--observable-ratio', type=float, default=0.05)
+    p.add_argument('--lambda-min-observable', type=float, default=3.0)
+    p.add_argument('--observable-ratio', type=float, default=0.25)
     args = p.parse_args()
 
     print(f"[supervisor] Starting with --tilt-deg {args.tilt_deg}")

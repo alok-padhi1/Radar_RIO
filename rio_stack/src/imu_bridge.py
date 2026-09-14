@@ -35,6 +35,7 @@ import socket
 import struct
 import sys
 import time
+import math
 
 try:
     from pymavlink import mavutil
@@ -61,7 +62,10 @@ def main():
                         "(default: 5020 for doppler_rio, 5021 for slam_node)")
     p.add_argument('--stats-interval', type=float, default=10.0,
                    help="Seconds between status prints (default: 10)")
+    p.add_argument('--pitch-offset-deg', type=float, default=0.0,
+                   help="Offset to subtract from the IMU pitch (for uncalibrated mounts)")
     args = p.parse_args()
+    pitch_offset = math.radians(args.pitch_offset_deg)
 
     dest_ports = [int(x.strip()) for x in args.dest_ports.split(',') if x.strip()]
     if not dest_ports:
@@ -112,15 +116,22 @@ def main():
             t_mono = time.monotonic()
             msg_count += 1
 
+            roll = msg.roll
+            pitch = msg.pitch - pitch_offset
+            yaw = msg.yaw
+            omega_x = msg.rollspeed
+            omega_y = msg.pitchspeed
+            omega_z = msg.yawspeed
+
             # Pack and broadcast
             pkt = IMU_PKT.pack(
                 t_mono,
-                msg.roll,        # rad
-                msg.pitch,       # rad
-                msg.yaw,         # rad
-                msg.rollspeed,   # rad/s  (body X = forward)
-                msg.pitchspeed,  # rad/s  (body Y = right)
-                msg.yawspeed,    # rad/s  (body Z = down)
+                roll,
+                pitch,
+                yaw,
+                omega_x,
+                omega_y,
+                omega_z,
             )
             for port in dest_ports:
                 try:

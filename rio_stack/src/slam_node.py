@@ -100,17 +100,26 @@ class TiltMount:
         ])
         return Ry @ Rx
 
-    def to_body(self, xyz_radar: np.ndarray, attitude: np.ndarray = None) -> np.ndarray:
-        if attitude is not None:
+    def to_body(self, xyz_radar: np.ndarray, attitude: np.ndarray = None,
+                imu_level_points: bool = True) -> np.ndarray:
+        """Transform radar points to body frame.
+        
+        imu_level_points: if True (default), apply full pitch+roll leveling from IMU.
+          Set False to use only the static mechanical tilt (R_static) for point
+          coordinates, which prevents accumulated map distortion when the IMU pitch
+          reference is unreliable (e.g. handheld mounts with uncalibrated AHRS trim).
+          Yaw and deskew still use the IMU — only the pitch/roll leveling is disabled.
+        """
+        if attitude is not None and imu_level_points:
             R_level = self.get_R(attitude)
-            
             # R_tilt (mechanical boresight tilt) is independent of, and in addition
             # to, the IMU's dynamic leveling — it must not be dropped here.
             R_dynamic = R_level @ self.R_static   # R_static == R_tilt @ P
-            
-            # The lever arm must ALSO be leveled! 
+            # The lever arm must ALSO be leveled!
             return xyz_radar @ R_dynamic.T + (R_level @ self.lever_arm)
-            
+
+        # Static-only path: apply mechanical tilt only, no IMU pitch/roll.
+        # This is the safe default when AHRS pitch calibration is unknown.
         return xyz_radar @ self.R_static.T + self.lever_arm  # Eq.(2)
 
 
@@ -228,8 +237,9 @@ class RadarSLAM:
                  filter_cfg: FilterConfig | None = None,
                  plane_threshold: float = 0.6,
                  trust_imu_yaw: bool = True,
-                 lambda_min_observable: float = 10.0,
-                 observable_ratio: float = 0.05):
+                 lambda_min_observable: float = 3.0,
+                 observable_ratio: float = 0.05,
+                 imu_level_points: bool = False):
         self.mount = mount
         self.plane_threshold = plane_threshold
         self.voxel_size = voxel_size
@@ -238,6 +248,10 @@ class RadarSLAM:
         self.trust_imu_yaw = trust_imu_yaw
         self.lambda_min_observable = lambda_min_observable
         self.observable_ratio = observable_ratio
+        # imu_level_points: apply pitch+roll leveling to point coords (default OFF for
+        # handheld/uncalibrated AHRS mounts — only yaw is used). Enable only when AHRS
+        # trim is properly calibrated for the physical mount.
+        self.imu_level_points = imu_level_points
 
         self.T_world = np.eye(4)          # current pose, world <- body
         self.map_cloud = o3d.geometry.PointCloud()
@@ -454,7 +468,7 @@ class RadarSLAM:
 
         # Frame-to-Map requires the absolute predicted pose as the initial guess.
         T_pred = self.T_world.copy()
-        if self.last_v_body is not None and len(self.pose_chain) >= 2:
+        if self.last_v_body is not None and len(self.pose_chain) >= 1:
             # Shift translation by RIO velocity (velocity is in local body frame, 
             # so we rotate it into the world frame before adding)
             t_shift = self.T_world[:3, :3] @ (self.last_v_body * dt)
@@ -582,7 +596,8 @@ def run(args):
                       plane_threshold=args.plane_threshold,
                       trust_imu_yaw=args.trust_imu_yaw,
                       lambda_min_observable=args.lambda_min_observable,
-                      observable_ratio=args.observable_ratio)
+                      observable_ratio=args.observable_ratio,
+                      imu_level_points=args.imu_level_points)
     accum = KeyframeAccumulator(window_s=args.window_s)
 
     points_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -661,7 +676,8 @@ def run(args):
                 if pts_radar is None:
                     continue
                 t = time.monotonic()
-                xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude)
+                xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude,
+                                         imu_level_points=slam.imu_level_points)
                 v_radial = pts_radar[:, 3]
                 accum.add(t, xyz_body, v_radial)
                 frame_i += 1
@@ -738,6 +754,10 @@ def main():
                          "value (see Stage 5A) -- do not run with the default in production.")
     p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
                     help="Trust IMU absolute yaw (magnetometer) instead of GICP yaw for heading")
+    p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=False,
+                    help="Apply IMU pitch+roll leveling to point cloud coordinates. "
+                         "Disable (default) for handheld/uncalibrated AHRS mounts — "
+                         "only yaw is used for heading, pitch+roll are ignored for stability.")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="must match doppler_rio.py's --lateral-sign exactly")
     p.add_argument('--lever-x', type=float, default=0.12)

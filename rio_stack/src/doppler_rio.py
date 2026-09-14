@@ -279,14 +279,6 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
             return mask_zero, True, 1.0
         return None
 
-    # Dominant-static guard: by geometry, a moving vehicle (speed > eps) can have
-    # at most ~20% of its returns in the zero-Doppler band (|u^T v| < eps).
-    # If >= 70% of returns are already consistent with zero Doppler, the platform
-    # is physically static -- any moving hypothesis that fits residual noise
-    # is an artifact of FMCW Doppler quantization/clutter.
-    if n > 0 and (score_zero / n >= 0.70) and (score_zero >= 3):
-        return mask_zero, True, 1.0
-
     best_mask, best_score = None, -1
     for _ in range(iters):
         idx = rng.choice(n, size=3, replace=False)
@@ -295,7 +287,8 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
         # are nearly coplanar/parallel -- solving through them is
         # numerically unstable and is exactly what produces spurious
         # multi-m/s "hypotheses" on a near-planar floor patch.
-        sing = np.linalg.svd(A_sub, compute_uv=False)
+        A_cond_sub = A_sub[:, :2] if force_2d else A_sub
+        sing = np.linalg.svd(A_cond_sub, compute_uv=False)
         if sing[-1] < 1e-3 or (sing[0] / max(sing[-1], 1e-9)) > cond_reject_threshold:
             continue
         try:
@@ -574,7 +567,8 @@ class DopplerRIO:
                 sigma_r_m=self.sigma_r_m, sigma_az_rad=self.sigma_az_rad,
                 sigma_el_rad=self.sigma_el_rad, sigma_v_mps=self.sigma_v_mps,
                 huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
-                tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult)
+                tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult,
+                force_2d=(attitude is not None))
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 

@@ -449,8 +449,12 @@ class NavNode:
             print(f"[nav_node] GEOFENCE breach: r={r_xy:.1f}m > "
                   f"{self.cfg.max_radius_from_origin_m}m")
             return False
-        if p[2] > self.cfg.max_altitude_agl_m or p[2] < self.cfg.min_altitude_agl_m:
-            print(f"[nav_node] ALTITUDE limit breach: z={p[2]:.1f}m")
+        alt_agl = -p[2]
+        if alt_agl > self.cfg.max_altitude_agl_m:
+            print(f"[nav_node] ALTITUDE limit breach: z={alt_agl:.1f}m > max")
+            return False
+        if self.state == NavState.MISSION and alt_agl < self.cfg.min_altitude_agl_m:
+            print(f"[nav_node] ALTITUDE limit breach: z={alt_agl:.1f}m < min")
             return False
         return True
 
@@ -586,7 +590,7 @@ def parse_waypoints(spec: str) -> list[Waypoint]:
         if not chunk:
             continue
         x, y, z = (float(v) for v in chunk.split(','))
-        wps.append(Waypoint(x, y, z))
+        wps.append(Waypoint(x, y, -z))  # Z is UP in user input, but internal map frame is NED (Z-Down)
     return wps
 
 
