@@ -270,7 +270,7 @@ def run(args):
                             'vx':       round(float(vx), 4),
                             'vy':       round(float(vy), 4),
                             'vz':       round(float(vz), 4),
-                            'inliers':  int(n_inliers),
+                            'inliers':  int(inliers),
                         }
                         f.write(json.dumps(entry) + '\n')
                         n_rio += 1
