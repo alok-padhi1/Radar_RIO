@@ -414,7 +414,7 @@ def polar_uncertainty_weights(xyz_radar: np.ndarray, u_body: np.ndarray, ranges:
 def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
                 sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps,
                 huber_delta_mps=0.20, max_iters=4, tol_mps=1e-3,
-                gross_outlier_mult=10.0, max_speed_mps=25.0):
+                gross_outlier_mult=10.0, max_speed_mps=25.0, force_2d=False):
     """Stage 4A: IRLS refinement of the RANSAC-seeded velocity."""
     v = np.asarray(v_seed, dtype=float).copy()
     max_iters = int(np.clip(max_iters, 3, 5))
@@ -425,13 +425,22 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
         return None, None
 
     u_k, v_k, xyz_k, r_k = u_body[keep], v_radial[keep], xyz_radar[keep], ranges[keep]
-    A_full, b_full = -u_k, v_k
+    A_full = -u_k
+    if force_2d:
+        A_full = A_full[:, :2]
+    b_full = v_k
     cov = None
 
     for _ in range(max_iters):
-        w_meas = polar_uncertainty_weights(xyz_k, u_k, r_k, R_used, v,
-                                            sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps)
-        resid = b_full + u_k @ v
+        if force_2d:
+            v_full = np.array([v[0], v[1], 0.0])
+            w_meas = polar_uncertainty_weights(xyz_k, u_k, r_k, R_used, v_full,
+                                                sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps)
+            resid = b_full + u_k @ v_full
+        else:
+            w_meas = polar_uncertainty_weights(xyz_k, u_k, r_k, R_used, v,
+                                                sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps)
+            resid = b_full + u_k @ v
         abs_r = np.abs(resid)
         w_huber = np.ones_like(abs_r)
         far = abs_r > huber_delta_mps
@@ -442,9 +451,19 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
         A_w = A_full * sqrt_w[:, None]
         b_w = b_full * sqrt_w
         try:
-            v_new, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+            v_new_sub, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+            if force_2d:
+                v_new = np.array([v_new_sub[0], v_new_sub[1], 0.0])
+            else:
+                v_new = v_new_sub
             ATA = A_w.T @ A_w
-            cov = np.linalg.pinv(ATA, rcond=1e-3)
+            cov_sub = np.linalg.pinv(ATA, rcond=1e-3)
+            if force_2d:
+                cov = np.zeros((3, 3))
+                cov[:2, :2] = cov_sub
+                cov[2, 2] = 1.0
+            else:
+                cov = cov_sub
         except (np.linalg.LinAlgError, ValueError):
             break
 
@@ -750,7 +769,7 @@ if __name__ == '__main__':
     p.add_argument('--forward-ports', type=str, default=None,
                     help='comma-separated fan-out destinations, e.g. '
                          '"5006,5007,5008" or "127.0.0.1:5006,127.0.0.1:5007"')
-    p.add_argument('--theta-tilt-deg', type=float, default=40.0,
+    p.add_argument('--theta-tilt-deg', type=float, default=90.0,
                     help="Physical mount pitch-down angle. MUST match the bench-measured "
                          "value (see Stage 5A) -- do not run with the default in production.")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],

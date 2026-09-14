@@ -149,7 +149,7 @@ def build_children(args) -> list[Child]:
     ]
     if not args.no_mavlink:
         children.append(Child(
-            "mavlink_bridge", [py, "mavlink_bridge.py",
+            "mavlink_bridge", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mavlink_bridge.py"),
                                 "--autopilot", args.platform,
                                 "--mavlink-dest", args.mavlink_dest,
                                 "--rio-port", "5007"],
@@ -198,7 +198,7 @@ def build_children(args) -> list[Child]:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--port', default=None, help="serial device for radar_fanout.py")
-    p.add_argument('--tilt-deg', type=float, default=40.0,
+    p.add_argument('--tilt-deg', type=float, default=90.0,
                     help="Physical mount pitch-down angle. MUST match the bench-measured value.")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="passed to both rio and slam -- see doppler_rio.py's TiltMount "
@@ -246,7 +246,7 @@ def main():
                          "Enables IMU rotation compensation via imu_bridge.py.")
     p.add_argument('--imu-baud', type=int, default=115200,
                     help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
-    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
                     help="Trust IMU/magnetometer yaw over raw GICP yaw (recommended; "
                          "GICP yaw is unobservable in symmetric corridors)")
     p.add_argument('--huber-delta', type=float, default=0.20)

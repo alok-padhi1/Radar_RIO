@@ -163,7 +163,7 @@ class NavConfig:
     pose_lost_rtl_timeout_s: float = 4.0
     max_radius_from_origin_m: float = 150.0
     max_altitude_agl_m: float = 200.0
-    min_altitude_agl_m: float = 5.0
+    min_altitude_agl_m: float = 2.0
 
     control_rate_hz: float = 10.0
 
@@ -182,7 +182,7 @@ class Waypoint:
 class PoseState:
     t_local: float = 0.0     # time.monotonic() this was last updated
     t_slam: float = 0.0      # slam_node's frame timestamp
-    position_enu: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    position_nav: np.ndarray = field(default_factory=lambda: np.zeros(3))
     fwd_obstacle_range_m: float = float('inf')
     have_pose: bool = False
 
@@ -203,18 +203,25 @@ class PoseTracker:
     confident, wrong position estimate that sends the vehicle off course."""
 
     def __init__(self, cfg: NavConfig):
+        self.yaw_offset = 0.0
         self.cfg = cfg
         self.pose = PoseState()
         self._last_rio_t = None
 
-    def on_slam_pose(self, t_slam: float, T_world_body: np.ndarray, fwd_range: float):
-        # T_world_body: 4x4, body->world. Position is the translation column (NED).
-        p_ned = T_world_body[:3, 3].copy()
-        self.pose.position_enu = np.array([p_ned[1], p_ned[0], -p_ned[2]])  # NED -> ENU
+    def on_slam_pose(self, t_slam: float, T_world_body: np.ndarray, fwd_range: float, attitude: AttitudeState | None = None):
+        p_nav = T_world_body[:3, 3].copy()
+        
+        # SLAM frame's yaw relative to the initial frame
+        slam_yaw = math.atan2(T_world_body[1, 0], T_world_body[0, 0])
+        if attitude is not None and attitude.valid:
+            self.yaw_offset = attitude.yaw - slam_yaw
+            
+        self.pose.position_nav = p_nav
         self.pose.fwd_obstacle_range_m = fwd_range
         self.pose.t_slam = t_slam
         self.pose.t_local = time.monotonic()
         self.pose.have_pose = True
+        self._last_rio_t = None
 
     def on_rio_velocity(self, t: float, v_body: np.ndarray,
                          attitude: AttitudeState | None = None):
@@ -234,14 +241,14 @@ class PoseTracker:
             self._last_rio_t = t
             return
 
-        R = body_to_nav_rotation(attitude.roll, attitude.pitch, attitude.yaw)
-        v_ned = R @ v_body
-        v_enu = np.array([v_ned[1], v_ned[0], -v_ned[2]])                    # NED -> ENU
+        nav_yaw = attitude.yaw - self.yaw_offset
+        R = body_to_nav_rotation(attitude.roll, attitude.pitch, nav_yaw)
+        v_nav = R @ v_body
 
         if self._last_rio_t is not None and self.pose.have_pose:
             dt = t - self._last_rio_t
             if 0 < dt < 0.5:
-                self.pose.position_enu = self.pose.position_enu + v_enu * dt
+                self.pose.position_nav = self.pose.position_nav + v_nav * dt
                 self.pose.t_local = time.monotonic()
         self._last_rio_t = t
 
@@ -279,14 +286,10 @@ class Autopilot:
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0,
             1 if arm else 0, 0, 0, 0, 0, 0, 0)
 
-    def send_velocity_setpoint(self, vx_enu: float, vy_enu: float, vz_enu: float,
+    def send_velocity_setpoint(self, vx_ned: float, vy_ned: float, vz_ned: float,
                                 yaw_rate_rad_s: float = 0.0):
         """SET_POSITION_TARGET_LOCAL_NED, velocity-only (position bits ignored
-        via type_mask), yaw-rate control. NED vs ENU: MAVLink's LOCAL_NED
-        frame is North-East-Down, this project's internal nav frame is
-        East-North-Up -- convert here, once, at the boundary, so the rest of
-        the nav stack never has to think about it."""
-        vx_ned, vy_ned, vz_ned = vy_enu, vx_enu, -vz_enu
+        via type_mask), yaw-rate control."""
         # POSITION_TARGET_TYPEMASK bits: 0-2 pos (1=ignore), 3-5 vel (0=use),
         # 6-8 accel (1=ignore), 9 force, 10 yaw (1=ignore), 11 yaw_rate (0=use).
         # We want velocity + yaw_rate control only.
@@ -353,34 +356,34 @@ def velocity_toward(current: np.ndarray, target: np.ndarray, max_speed: float) -
     return (err / dist) * speed
 
 
-def apply_obstacle_scaling(v_cmd_enu: np.ndarray, heading_enu: np.ndarray,
+def apply_obstacle_scaling(v_cmd_nav: np.ndarray, heading_nav: np.ndarray,
                             fwd_range_m: float, cfg: NavConfig) -> tuple[np.ndarray, bool]:
     """Scales down (or zeros) the forward component of the commanded
     velocity based on the SLAM node's forward-cone obstacle range. Returns
     (adjusted_velocity, hard_stop_triggered)."""
     if not math.isfinite(fwd_range_m):
-        return v_cmd_enu, False
+        return v_cmd_nav, False
     if fwd_range_m <= cfg.obstacle_hard_stop_m:
         # Zero the along-heading component; allow lateral/vertical motion to
         # continue so the vehicle can still be commanded to sidestep.
-        h_norm = np.linalg.norm(heading_enu)
+        h_norm = np.linalg.norm(heading_nav)
         if h_norm < 1e-6:
             return np.zeros(3), True
-        h = heading_enu / h_norm
-        along = np.dot(v_cmd_enu, h)
+        h = heading_nav / h_norm
+        along = np.dot(v_cmd_nav, h)
         if along > 0:
-            v_cmd_enu = v_cmd_enu - along * h
-        return v_cmd_enu, True
+            v_cmd_nav = v_cmd_nav - along * h
+        return v_cmd_nav, True
     if fwd_range_m <= cfg.obstacle_brake_start_m:
         scale = (fwd_range_m - cfg.obstacle_hard_stop_m) / (
             cfg.obstacle_brake_start_m - cfg.obstacle_hard_stop_m)
-        h_norm = np.linalg.norm(heading_enu)
+        h_norm = np.linalg.norm(heading_nav)
         if h_norm > 1e-6:
-            h = heading_enu / h_norm
-            along = np.dot(v_cmd_enu, h)
+            h = heading_nav / h_norm
+            along = np.dot(v_cmd_nav, h)
             if along > 0:
-                v_cmd_enu = v_cmd_enu - along * (1.0 - scale) * h
-    return v_cmd_enu, False
+                v_cmd_nav = v_cmd_nav - along * (1.0 - scale) * h
+    return v_cmd_nav, False
 
 
 # --------------------------------------------------------------- main loop
@@ -440,7 +443,7 @@ class NavNode:
     # -- safety checks, evaluated every control tick regardless of state --
 
     def _check_geofence(self) -> bool:
-        p = self.tracker.pose.position_enu
+        p = self.tracker.pose.position_nav
         r_xy = math.hypot(p[0], p[1])
         if r_xy > self.cfg.max_radius_from_origin_m:
             print(f"[nav_node] GEOFENCE breach: r={r_xy:.1f}m > "
@@ -499,7 +502,7 @@ class NavNode:
             self.ap.send_velocity_setpoint(0, 0, 0)
             return
 
-        pos = self.tracker.pose.position_enu
+        pos = self.tracker.pose.position_nav
         fwd_range = self.tracker.pose.fwd_obstacle_range_m
 
         if self.state == NavState.HOLD:
@@ -525,7 +528,14 @@ class NavNode:
 
             if hard_stop:
                 self._enter(NavState.OBSTACLE_STOP)
-            self.ap.send_velocity_setpoint(*v_cmd)
+            yaw_off = self.tracker.yaw_offset
+            cy, sy = math.cos(yaw_off), math.sin(yaw_off)
+            v_cmd_ned = np.array([
+                v_cmd[0] * cy - v_cmd[1] * sy,
+                v_cmd[0] * sy + v_cmd[1] * cy,
+                v_cmd[2]
+            ])
+            self.ap.send_velocity_setpoint(*v_cmd_ned)
             return
 
         if self.state == NavState.OBSTACLE_STOP:
@@ -568,7 +578,7 @@ class NavNode:
 
 
 def parse_waypoints(spec: str) -> list[Waypoint]:
-    """--waypoints 'x,y,z;x,y,z;...' in the ENU nav frame, meters, relative
+    """--waypoints 'x,y,z;x,y,z;...' in the SLAM nav frame, meters, relative
     to wherever slam_node.py's world origin was (i.e. vehicle start pose)."""
     wps = []
     for chunk in spec.split(';'):
@@ -595,7 +605,7 @@ def main():
     p.add_argument('--rio-port', type=int, default=5006)
 
     p.add_argument('--waypoints', required=True,
-                    help="'x,y,z;x,y,z;...' ENU meters relative to start pose, "
+                    help="'x,y,z;x,y,z;...' SLAM frame meters relative to start pose, "
                          "e.g. '0,10,5;10,10,5;10,0,5;0,0,5'")
     p.add_argument('--max-speed', type=float, default=2.0)
     p.add_argument('--max-radius', type=float, default=150.0)

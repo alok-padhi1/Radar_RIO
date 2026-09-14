@@ -319,7 +319,7 @@ class RadarSLAM:
         J = np.hstack((J_rot, n))  # (N, 6)
         
         r_ref = 10.0
-        r2 = np.clip(np.sum(p**2, axis=1), r_ref**2, None)
+        r2 = np.clip(np.sum(p_rot**2, axis=1), r_ref**2, None)
         W = (r_ref ** 2) / r2
         H = J.T @ (W[:, None] * J)  # (6, 6)
         return H
@@ -733,10 +733,10 @@ def main():
     p.add_argument('--pose-port', default='5011',
                     help="Comma-separated UDP ports for pose forwarding "
                          "(e.g. '5011,5014'). 0 to disable.")
-    p.add_argument('--theta-tilt-deg', type=float, default=40.0,
+    p.add_argument('--theta-tilt-deg', type=float, default=90.0,
                     help="Physical mount pitch-down angle. MUST match the bench-measured "
                          "value (see Stage 5A) -- do not run with the default in production.")
-    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
                     help="Trust IMU absolute yaw (magnetometer) instead of GICP yaw for heading")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="must match doppler_rio.py's --lateral-sign exactly")
@@ -770,6 +770,7 @@ def main():
     p.add_argument('--save-pcd', default=None,
                     help="Save accumulated map as .pcd on exit. "
                          "Pass a filepath (e.g. map.pcd) or directory.")
+    p.add_argument('--imu-ip', default='127.0.0.1')
     p.add_argument('--imu-port', type=int, default=0,
                     help="UDP port to receive IMU data from imu_bridge.py "
                          "(default 0 = disabled, no rotation deskew)")
