@@ -58,7 +58,7 @@ class FilterConfig:
     # NOTE: 0.40 m/s is correct for dynamic walking at ~1 m/s with IMU rotation
     # compensation; the extra headroom absorbs lever-arm projection errors from
     # uncalibrated AHRS pitch. Use 0.20 m/s for static bench testing only.
-    doppler_eps_mps: float = 0.40
+    doppler_eps_mps: float = 0.20
 
     # Stage 4: temporal persistence. A point must have a neighbor within
     # `persistence_radius_m` in at least `persistence_min_hits` of the last

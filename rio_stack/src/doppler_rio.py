@@ -187,17 +187,23 @@ class TiltMount:
             return self.get_R(attitude) @ self.R_static
         return self.R_static
 
-    def to_body(self, points_radar_xyz: np.ndarray, attitude: np.ndarray = None) -> np.ndarray:
-        """Transforms radar points to body frame. If attitude [roll, pitch, yaw] is provided,
-        dynamically rotates the points into a gravity-leveled frame."""
-        R_used = self.current_rotation(attitude)
-        if attitude is not None:
+    def to_body(self, points_radar_xyz: np.ndarray, attitude: np.ndarray = None,
+                imu_level_points: bool = True) -> np.ndarray:
+        """Transforms radar points to body frame. If attitude [roll, pitch, yaw] is provided
+        AND imu_level_points is True, dynamically rotates the points into a gravity-leveled frame.
+        
+        When imu_level_points=False (recommended for handheld/uncalibrated AHRS), only the
+        static mechanical tilt (R_static) is used. This prevents systematic Vz bias from
+        uncalibrated AHRS pitch offsets.
+        """
+        if attitude is not None and imu_level_points:
+            R_used = self.current_rotation(attitude)
             R_level = self.get_R(attitude)
             # The lever arm must ALSO be leveled! 
             return points_radar_xyz @ R_used.T + (R_level @ self.lever_arm)
         
-        # Fallback to static config
-        return points_radar_xyz @ R_used.T + self.lever_arm
+        # Static-only path: apply mechanical tilt only, no IMU pitch/roll.
+        return points_radar_xyz @ self.R_static.T + self.lever_arm
 
 
 def parse_udp_packet(data: bytes):
@@ -482,7 +488,8 @@ class DopplerRIO:
                  huber_delta_mps=0.20, irls_max_iters=4, irls_tol_mps=1e-3,
                  gross_outlier_mult=10.0,
                  sigma_r_m=0.10, sigma_az_rad=math.radians(2.0),
-                 sigma_el_rad=math.radians(4.0), sigma_v_mps=0.05):
+                 sigma_el_rad=math.radians(4.0), sigma_v_mps=0.05,
+                 imu_level_points: bool = False):
         self.mount = mount
         self.min_range, self.max_range = min_range, max_range
         self.eps, self.iters, self.min_inlier_ratio = eps, iters, min_inlier_ratio
@@ -499,6 +506,7 @@ class DopplerRIO:
         self.sigma_az_rad = sigma_az_rad
         self.sigma_el_rad = sigma_el_rad
         self.sigma_v_mps = sigma_v_mps
+        self.imu_level_points = imu_level_points
 
     def process_frame(self, points_radar: np.ndarray, t_frame: float):
         """points_radar: (N,4) [x,y,z,v] in RADAR frame. Returns a result dict."""
@@ -510,7 +518,8 @@ class DopplerRIO:
             attitude = self.imu_listener.get_attitude()
 
         xyz_radar_native = points_radar[:, 0:3]
-        xyz_b = self.mount.to_body(xyz_radar_native, attitude)
+        xyz_b = self.mount.to_body(xyz_radar_native, attitude,
+                                    imu_level_points=self.imu_level_points)
         v_meas = points_radar[:, 3]
         ranges = np.linalg.norm(xyz_b, axis=1)
 
@@ -635,7 +644,8 @@ def run_udp_loop(args):
                       sigma_r_m=args.sigma_r,
                       sigma_az_rad=math.radians(args.sigma_az_deg),
                       sigma_el_rad=math.radians(args.sigma_el_deg),
-                      sigma_v_mps=args.sigma_v)
+                      sigma_v_mps=args.sigma_v,
+                      imu_level_points=getattr(args, 'imu_level_points', False))
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.listen_ip, args.listen_port))
@@ -799,6 +809,9 @@ if __name__ == '__main__':
     p.add_argument('--sigma-az-deg', type=float, default=2.0, help="Stage 4C: azimuth std-dev, degrees")
     p.add_argument('--sigma-el-deg', type=float, default=4.0, help="Stage 4C: elevation std-dev, degrees")
     p.add_argument('--sigma-v', type=float, default=0.05, help="Stage 4C: Doppler measurement std-dev, m/s")
+    p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=False,
+                    help="Apply IMU pitch+roll leveling to radar points before velocity solve. "
+                         "Default OFF for handheld/uncalibrated AHRS mounts.")
     args = p.parse_args()
 
     self_test() if args.selftest else run_udp_loop(args)

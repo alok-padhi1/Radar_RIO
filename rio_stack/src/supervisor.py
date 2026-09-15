@@ -126,7 +126,8 @@ def build_children(args) -> list[Child]:
                        "--sigma-az-deg", str(args.sigma_az_deg),
                        "--sigma-el-deg", str(args.sigma_el_deg),
                        "--sigma-v", str(args.sigma_v)]
-                       + (["--imu-port", "5020"] if args.imu_port else []),
+                       + (["--imu-port", "5020"] if args.imu_port else [])
+                       + (["--imu-level-points"] if args.imu_level_points else ["--no-imu-level-points"]),
               critical=True, start_delay_s=1.0),
         Child("slam", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "slam_node.py"),
                         "--listen-port", "5010",
@@ -251,9 +252,10 @@ def main():
                     help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
     p.add_argument('--pitch-offset-deg', type=float, default=0.0,
                     help="Pitch offset to calibrate out FC mounting bias (passed to imu_bridge)")
-    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
-                    help="Trust IMU/magnetometer yaw over raw GICP yaw (recommended ON — "
-                         "GICP yaw is unobservable in featureless corridors/open terrain)")
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
+                    help="Trust IMU/magnetometer yaw over raw GICP yaw. "
+                         "Only enable with a properly calibrated compass away from metal. "
+                         "Default OFF — GICP geometric yaw is more reliable in most setups.")
     p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=False,
                     help="Apply IMU pitch+roll leveling to SLAM point cloud coordinates. "
                          "Default OFF for handheld/uncalibrated AHRS mounts. "
@@ -266,11 +268,14 @@ def main():
     p.add_argument('--sigma-az-deg', type=float, default=2.0)
     p.add_argument('--sigma-el-deg', type=float, default=4.0)
     p.add_argument('--sigma-v', type=float, default=0.05)
-    p.add_argument('--lambda-min-observable', type=float, default=3.0)
-    p.add_argument('--observable-ratio', type=float, default=0.25)
+    p.add_argument('--lambda-min-observable', type=float, default=10.0)
+    p.add_argument('--observable-ratio', type=float, default=0.05)
     args = p.parse_args()
 
     print(f"[supervisor] Starting with --tilt-deg {args.tilt_deg}")
+    if args.trust_imu_yaw:
+        logging.warning("⚠️  --trust-imu-yaw is ON. This relies on a calibrated magnetometer. "
+                        "If you see XY drift, re-run with --no-trust-imu-yaw.")
 
     children = build_children(args)
     stop_flag = threading.Event()
