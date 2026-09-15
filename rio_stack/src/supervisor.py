@@ -268,8 +268,8 @@ def main():
     p.add_argument('--sigma-az-deg', type=float, default=2.0)
     p.add_argument('--sigma-el-deg', type=float, default=4.0)
     p.add_argument('--sigma-v', type=float, default=0.05)
-    p.add_argument('--lambda-min-observable', type=float, default=10.0)
-    p.add_argument('--observable-ratio', type=float, default=0.05)
+    p.add_argument('--lambda-min-observable', type=float, default=3.0)
+    p.add_argument('--observable-ratio', type=float, default=0.25)
     args = p.parse_args()
 
     print(f"[supervisor] Starting with --tilt-deg {args.tilt_deg}")
