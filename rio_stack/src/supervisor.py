@@ -212,13 +212,13 @@ def main():
     # Defaults here match production/flight scale -- override for a close-range
     # bench setup, e.g.: --voxel-size 0.10 --max-corr-dist 0.5
     # --min-correspondences 6 --persistence-radius 0.15 --deadband 0.05
-    p.add_argument('--voxel-size', type=float, default=1.5)
-    p.add_argument('--max-corr-dist', type=float, default=6.0)
-    p.add_argument('--min-correspondences', type=int, default=15)
-    p.add_argument('--persistence-radius', type=float, default=1.0)
-    p.add_argument('--persistence-min-hits', type=int, default=2)
+    p.add_argument('--voxel-size', type=float, default=0.10)
+    p.add_argument('--max-corr-dist', type=float, default=2.0)
+    p.add_argument('--min-correspondences', type=int, default=4)
+    p.add_argument('--persistence-radius', type=float, default=0.50)
+    p.add_argument('--persistence-min-hits', type=int, default=1)
     p.add_argument('--window-s', type=float, default=0.5)
-    p.add_argument('--eps', type=float, default=0.20, help="doppler_rio.py Doppler tolerance m/s")
+    p.add_argument('--eps', type=float, default=0.40, help="doppler_rio.py Doppler tolerance m/s")
     p.add_argument('--min-inlier-ratio', type=float, default=0.25, help="doppler_rio.py minimum inlier ratio")
     p.add_argument('--cond-reject-threshold', type=float, default=12.0, help="doppler_rio.py condition number reject threshold")
     p.add_argument('--deadband', type=float, default=0.05, help="doppler_rio.py m/s deadband")

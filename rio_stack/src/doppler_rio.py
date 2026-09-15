@@ -540,8 +540,13 @@ class DopplerRIO:
         if self.imu_listener is not None:
             omega = self.imu_listener.get_omega()
         if omega is not None:
-            omega_leveled = self.mount.get_R(attitude) @ omega if attitude is not None else omega
-            omega_cross_p = np.cross(omega_leveled, xyz_b)          # (N, 3)
+            # When points are leveled to Earth frame, omega must also be in Earth frame.
+            # When points stay in Body frame, omega stays in Body frame.
+            if attitude is not None and self.imu_level_points:
+                omega_used = self.mount.get_R(attitude) @ omega
+            else:
+                omega_used = omega
+            omega_cross_p = np.cross(omega_used, xyz_b)          # (N, 3)
             v_rot_comp = np.sum(u_body * omega_cross_p, axis=1)  # (N,)
             v_adjusted = v_meas + v_rot_comp
         else:
@@ -552,7 +557,7 @@ class DopplerRIO:
             static_margin_frac=self.static_margin_frac,
             static_margin_min=self.static_margin_min,
             cond_reject_threshold=self.cond_reject_threshold,
-            force_2d=(attitude is not None))
+            force_2d=(attitude is not None and self.imu_level_points))
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
@@ -566,7 +571,7 @@ class DopplerRIO:
             # hypothesis beat it by the required margin) is high confidence.
             cov = np.eye(3) * 1e-4
         else:
-            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=(attitude is not None))
+            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=(attitude is not None and self.imu_level_points))
             if v_seed is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
@@ -577,7 +582,7 @@ class DopplerRIO:
                 sigma_el_rad=self.sigma_el_rad, sigma_v_mps=self.sigma_v_mps,
                 huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
                 tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult,
-                force_2d=(attitude is not None))
+                force_2d=(attitude is not None and self.imu_level_points))
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 

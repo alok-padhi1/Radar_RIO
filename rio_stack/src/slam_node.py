@@ -676,8 +676,10 @@ def run(args):
                 if pts_radar is None:
                     continue
                 t = time.monotonic()
+                # SLAM always needs leveled points for _gravity_correct() to work.
+                # This is independent of the RIO solver's imu_level_points setting.
                 xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude,
-                                         imu_level_points=slam.imu_level_points)
+                                         imu_level_points=True)
                 v_radial = pts_radar[:, 3]
                 accum.add(t, xyz_body, v_radial)
                 frame_i += 1
