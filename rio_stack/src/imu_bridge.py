@@ -118,10 +118,11 @@ def main():
                 
             msg_type = msg.get_type()
             
-            if msg_type == 'GLOBAL_POSITION_INT':
+            if msg_type in ('GLOBAL_POSITION_INT', 'GPS_RAW_INT'):
                 try:
                     out_sock.sendto(msg.get_msgbuf(), (args.dest_ip, args.mavlink_fwd_port))
-                    gps_count += 1
+                    if msg_type == 'GLOBAL_POSITION_INT':
+                        gps_count += 1
                 except OSError:
                     pass
                     

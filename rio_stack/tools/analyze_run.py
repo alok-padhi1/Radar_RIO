@@ -67,13 +67,20 @@ def load_log(path: str):
 # ─── Analysis Functions ─────────────────────────────────────────────────────
 
 def gps_path_length(gps: list[dict]) -> float:
-    """Total GPS path length (sum of inter-fix distances in ENU)."""
+    """Total GPS path length (sum of inter-fix distances in ENU).
+    Downsamples to 1Hz to avoid the 'coastline paradox' from high-frequency EKF jitter.
+    """
+    if not gps:
+        return 0.0
     total = 0.0
+    last_idx = 0
     for i in range(1, len(gps)):
-        dx = gps[i]['enu'][0] - gps[i-1]['enu'][0]
-        dy = gps[i]['enu'][1] - gps[i-1]['enu'][1]
-        dz = gps[i]['enu'][2] - gps[i-1]['enu'][2]
-        total += math.sqrt(dx*dx + dy*dy + dz*dz)
+        if gps[i]['t_mono'] - gps[last_idx]['t_mono'] >= 1.0:
+            dx = gps[i]['enu'][0] - gps[last_idx]['enu'][0]
+            dy = gps[i]['enu'][1] - gps[last_idx]['enu'][1]
+            dz = gps[i]['enu'][2] - gps[last_idx]['enu'][2]
+            total += math.sqrt(dx*dx + dy*dy + dz*dz)
+            last_idx = i
     return total
 
 
