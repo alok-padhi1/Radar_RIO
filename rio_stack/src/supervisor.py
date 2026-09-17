@@ -212,7 +212,7 @@ def build_children(args) -> list[Child]:
                           "--port", args.altimeter_serial,
                           "--baud", str(args.altimeter_baud),
                           "--dest-ports", "5030,5031,5032,5033",
-                          "--lever-z", str(args.lever_z)],
+                          "--lever-z", str(args.altimeter_lever_z)],
             critical=True, start_delay_s=0.5))
             
     return children
@@ -273,6 +273,8 @@ def main():
                     help="Serial port for U200A belly altimeter (e.g. /dev/ttyUSB1).")
     p.add_argument('--altimeter-baud', type=int, default=921600,
                     help="Baud rate for U200A belly altimeter (default: 921600)")
+    p.add_argument('--altimeter-lever-z', type=float, default=0.0,
+                    help="Z-offset for altimeter in meters")
     p.add_argument('--pitch-offset-deg', type=float, default=0.0,
                     help="Pitch offset to calibrate out FC mounting bias (passed to imu_bridge)")
     p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
