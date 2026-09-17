@@ -508,7 +508,7 @@ class RadarSLAM:
 
         # Inject IMU gravity into the initial guess so GICP starts searching
         # from a gravity-consistent orientation (prevents tilted local minima).
-        if self.last_attitude is not None:
+        if self.imu_level_points and self.last_attitude is not None:
             T_pred = self._gravity_correct(T_pred, agl_m=agl_m)
 
         # -- Stage 4B: GICP always runs; degeneracy is now DISCOVERED from its
@@ -550,7 +550,7 @@ class RadarSLAM:
 
         fitness, rmse = result.fitness, result.inlier_rmse
 
-        if self.last_attitude is not None:
+        if self.imu_level_points and self.last_attitude is not None:
             self.T_world = self._gravity_correct(self.T_world, agl_m=agl_m)
 
         self.pose_chain.append(self.T_world.copy())

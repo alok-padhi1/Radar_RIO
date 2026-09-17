@@ -37,6 +37,7 @@ import struct
 import sys
 import threading
 import time
+import queue
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -162,6 +163,7 @@ class NavState(Enum):
     MISSION = auto()       # actively flying the waypoint queue
     OBSTACLE_STOP = auto()  # forward range breached hard stop, holding position
     FAILSAFE_RTL = auto()
+    EXECUTING_RTH = auto() # autonomous return home via breadcrumbs
     LANDING = auto()
     DISARMED = auto()
 
@@ -241,6 +243,33 @@ class PoseTracker:
         self.cfg = cfg
         self.pose = PoseState()
         self._last_rio_t = None
+        self.start_position_nav = None
+        self.breadcrumb_trail = []
+        self._breadcrumb_lock = threading.Lock()
+
+    def _update_breadcrumbs(self):
+        if self.start_position_nav is None:
+            self.start_position_nav = self.pose.position_nav.copy()
+            with self._breadcrumb_lock:
+                self.breadcrumb_trail.append(self.start_position_nav)
+            return
+
+        with self._breadcrumb_lock:
+            if len(self.breadcrumb_trail) == 0:
+                last_bc = self.start_position_nav
+            else:
+                last_bc = self.breadcrumb_trail[-1]
+            
+            # 2D displacement (X/Y)
+            dist_2d = math.hypot(self.pose.position_nav[0] - last_bc[0], 
+                                 self.pose.position_nav[1] - last_bc[1])
+            if dist_2d > 2.0:
+                self.breadcrumb_trail.append(self.pose.position_nav.copy())
+
+    def get_displacement_m(self) -> float:
+        if self.start_position_nav is None:
+            return 0.0
+        return np.linalg.norm(self.pose.position_nav - self.start_position_nav)
 
     def on_slam_pose(self, t_slam: float, T_world_body: np.ndarray, fwd_range: float, attitude: AttitudeState | None = None):
         p_nav = T_world_body[:3, 3].copy()
@@ -258,6 +287,7 @@ class PoseTracker:
         self.pose.t_local = time.monotonic()
         self.pose.have_pose = True
         self._last_rio_t = None
+        self._update_breadcrumbs()
 
     def on_rio_velocity(self, t: float, v_body: np.ndarray,
                          attitude: AttitudeState | None = None):
@@ -286,6 +316,7 @@ class PoseTracker:
             if 0 < dt < 0.5:
                 self.pose.position_nav = self.pose.position_nav + v_nav * dt
                 self.pose.t_local = time.monotonic()
+                self._update_breadcrumbs()
         self._last_rio_t = t
 
     def on_altimeter(self, agl_m: float, attitude: AttitudeState | None):
@@ -462,6 +493,57 @@ def apply_obstacle_scaling(v_cmd_nav: np.ndarray, heading_nav: np.ndarray,
     return v_cmd_nav, False
 
 
+# --------------------------------------------------------------- RTH Planner
+
+class RTHPlanner(threading.Thread):
+    def __init__(self, tracker: PoseTracker):
+        super().__init__(daemon=True, name="RTHPlanner")
+        self.tracker = tracker
+        self.return_waypoints = queue.Queue()
+        self._trigger = threading.Event()
+
+    def trigger_rth(self):
+        self._trigger.set()
+
+    def run(self):
+        while True:
+            self._trigger.wait()
+            self._trigger.clear()
+            
+            with self.tracker._breadcrumb_lock:
+                trail = list(self.tracker.breadcrumb_trail)
+                start_pos = self.tracker.start_position_nav
+            
+            if start_pos is None:
+                # Empty queue to signal failure
+                continue
+                
+            current_z = self.tracker.pose.position_nav[2]
+
+            # Use raw breadcrumbs in reverse to prevent cutting corners
+            reversed_trail = list(reversed(trail))
+            
+            # Apply Z-axis safety: fly flat at current altitude
+            safe_trail = []
+            for wp in reversed_trail:
+                safe_wp = wp.copy()
+                safe_wp[2] = current_z
+                safe_trail.append(safe_wp)
+                
+            # Append the start position with safe Z
+            safe_start = start_pos.copy()
+            safe_start[2] = current_z
+            safe_trail.append(safe_start)
+            
+            # Empty existing queue
+            while not self.return_waypoints.empty():
+                self.return_waypoints.get()
+                
+            for wp in safe_trail:
+                # Convert numpy array to Waypoint object. Waypoint expects Z=Up (so -NED_Z)
+                self.return_waypoints.put(Waypoint(x=wp[0], y=wp[1], z=-wp[2]))
+
+
 # --------------------------------------------------------------- main loop
 
 class NavNode:
@@ -569,6 +651,9 @@ class NavNode:
             self._t_state_enter = time.monotonic()
 
     def _begin_rth(self):
+        print("[nav_node] Triggering autonomous breadcrumb RTH.")
+        self.rth_planner.trigger_rth()
+        self.rth_obstacle_block_start = None
         self._enter(NavState.RTH)
 
     def tick(self):
@@ -634,7 +719,56 @@ class NavNode:
             return
 
         if self.state == NavState.RTH:
-            self.ap.send_velocity_setpoint(0, 0, 0)
+            if self.active_rth_waypoint is None:
+                if self.rth_planner.return_waypoints.empty():
+                    print("[nav_node] RTH complete. Holding over origin.")
+                    self._enter(NavState.HOLD)
+                    self.ap.send_velocity_setpoint(0, 0, 0)
+                    return
+                self.active_rth_waypoint = self.rth_planner.return_waypoints.get()
+                if self.active_rth_waypoint is None:
+                    # RTH failed
+                    print("[nav_node] RTH failed to generate path. Descending in place.")
+                    self._enter(NavState.FAILSAFE_LAND)
+                    return
+
+            wp = self.active_rth_waypoint
+            target = np.array([wp.x, wp.y, -wp.z])  # Waypoint z is Up, target expects NED Down
+            pos = self.tracker.pose.position_nav
+            fwd_range = self.tracker.pose.fwd_obstacle_range_m
+            
+            dist = np.linalg.norm(target - pos)
+            if dist < self.cfg.waypoint_accept_radius_m:
+                print(f"[nav_node] RTH waypoint reached (dist={dist:.2f}m)")
+                self.active_rth_waypoint = None
+                return
+
+            v_target = velocity_toward(pos, target, self.cfg.max_speed_mps,
+                                       self.cfg.max_climb_mps, self.cfg.max_descend_mps)
+            v_target, hard_stop = apply_obstacle_scaling(v_target, target - pos, fwd_range, self.cfg)
+            v_cmd = self.slew.step(v_target, time.monotonic())
+            
+            if hard_stop:
+                if self.rth_obstacle_block_start is None:
+                    self.rth_obstacle_block_start = time.monotonic()
+                elif (time.monotonic() - self.rth_obstacle_block_start) > 15.0:
+                    print("[nav_node] RTH blocked for 15s. Executing FAILSAFE_LAND.")
+                    self._enter(NavState.FAILSAFE_LAND)
+                    return
+                # Brake and hold
+                self.ap.send_velocity_setpoint(0, 0, 0)
+                return
+            else:
+                self.rth_obstacle_block_start = None
+
+            yaw_off = self.tracker.yaw_offset
+            cy, sy = math.cos(yaw_off), math.sin(yaw_off)
+            v_cmd_ned = np.array([
+                v_cmd[0] * cy - v_cmd[1] * sy,
+                v_cmd[0] * sy + v_cmd[1] * cy,
+                v_cmd[2]
+            ])
+            self.ap.send_velocity_setpoint(*v_cmd_ned)
             return
 
         if self.state == NavState.LANDING or self.state == NavState.DISARMED:
@@ -712,7 +846,6 @@ class NavNode:
             return
         self.ap.offboard_or_guided_mode()      # mode change only. NO arm().
         self.home_map = self.tracker.pose.position_nav.copy()
-        self.breadcrumbs = [self.home_map.copy()]
         self._enter(NavState.MISSION)
 
     def run(self):
