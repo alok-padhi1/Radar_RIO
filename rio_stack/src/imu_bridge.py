@@ -64,6 +64,8 @@ def main():
                    help="Seconds between status prints (default: 10)")
     p.add_argument('--pitch-offset-deg', type=float, default=0.0,
                    help="Offset to subtract from the IMU pitch (for uncalibrated mounts)")
+    p.add_argument('--mavlink-fwd-port', type=int, default=14540,
+                   help="UDP port to forward MAVLink packets (GPS) to the logger (default: 14540)")
     args = p.parse_args()
     pitch_offset = math.radians(args.pitch_offset_deg)
 
@@ -91,64 +93,75 @@ def main():
     print(f"[imu_bridge] ✅ Heartbeat received — System {master.target_system}, "
           f"Component {master.target_component}", flush=True)
 
-    # Request ALL streams to ensure we get ATTITUDE
+    # Request ALL streams to ensure we get ATTITUDE and GLOBAL_POSITION_INT
     master.mav.request_data_stream_send(
         master.target_system, master.target_component,
         mavutil.mavlink.MAV_DATA_STREAM_ALL,
         args.rate_hz, 1)
 
-    print(f"[imu_bridge] Requested ATTITUDE at {args.rate_hz} Hz → "
-          f"UDP {args.dest_ip}:{dest_ports}", flush=True)
+    print(f"[imu_bridge] Requested ALL at {args.rate_hz} Hz → "
+          f"UDP {args.dest_ip}:{dest_ports} (plus GPS to {args.mavlink_fwd_port})", flush=True)
 
     # ── UDP output socket ──
     out_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # ── Main loop ──
     msg_count = 0
+    gps_count = 0
     t_last_stats = time.monotonic()
 
     try:
         while True:
-            msg = master.recv_match(type='ATTITUDE', blocking=True, timeout=1.0)
+            msg = master.recv_match(blocking=True, timeout=1.0)
             if msg is None:
                 continue
-
-            t_mono = time.monotonic()
-            msg_count += 1
-
-            roll = msg.roll
-            pitch = msg.pitch - pitch_offset
-            yaw = msg.yaw
-            omega_x = msg.rollspeed
-            omega_y = msg.pitchspeed
-            omega_z = msg.yawspeed
-
-            # Pack and broadcast
-            pkt = IMU_PKT.pack(
-                t_mono,
-                roll,
-                pitch,
-                yaw,
-                omega_x,
-                omega_y,
-                omega_z,
-            )
-            for port in dest_ports:
+                
+            msg_type = msg.get_type()
+            
+            if msg_type == 'GLOBAL_POSITION_INT':
                 try:
-                    out_sock.sendto(pkt, (args.dest_ip, port))
+                    out_sock.sendto(msg.get_msgbuf(), (args.dest_ip, args.mavlink_fwd_port))
+                    gps_count += 1
                 except OSError:
                     pass
-
-            # Periodic status print
-            now = time.monotonic()
-            if now - t_last_stats >= args.stats_interval:
-                rate = msg_count / (now - t_last_stats) if (now - t_last_stats) > 0 else 0
-                print(f"[imu_bridge] {msg_count} ATTITUDE msgs "
-                      f"({rate:.0f} Hz) | "
-                      f"RPY=[{msg.roll:+.2f}, {msg.pitch:+.2f}, {msg.yaw:+.2f}] rad | "
-                      f"ω=[{msg.rollspeed:+.3f}, {msg.pitchspeed:+.3f}, {msg.yawspeed:+.3f}] rad/s", flush=True)
-                msg_count = 0
-                t_last_stats = now
+                    
+            elif msg_type == 'ATTITUDE':
+                t_mono = time.monotonic()
+                msg_count += 1
+    
+                roll = msg.roll
+                pitch = msg.pitch - pitch_offset
+                yaw = msg.yaw
+                omega_x = msg.rollspeed
+                omega_y = msg.pitchspeed
+                omega_z = msg.yawspeed
+    
+                # Pack and broadcast
+                pkt = IMU_PKT.pack(
+                    t_mono,
+                    roll,
+                    pitch,
+                    yaw,
+                    omega_x,
+                    omega_y,
+                    omega_z,
+                )
+                for port in dest_ports:
+                    try:
+                        out_sock.sendto(pkt, (args.dest_ip, port))
+                    except OSError:
+                        pass
+    
+                # Periodic status print
+                now = time.monotonic()
+                if now - t_last_stats >= args.stats_interval:
+                    rate = msg_count / (now - t_last_stats) if (now - t_last_stats) > 0 else 0
+                    print(f"[imu_bridge] {msg_count} ATTITUDE ({rate:.0f} Hz), {gps_count} GPS | "
+                          f"RPY=[{msg.roll:+.2f}, {msg.pitch:+.2f}, {msg.yaw:+.2f}] rad | "
+                          f"ω=[{msg.rollspeed:+.3f}, {msg.pitchspeed:+.3f}, {msg.yawspeed:+.3f}] rad/s", flush=True)
+                    msg_count = 0
+                    gps_count = 0
+                    t_last_stats = now
 
     except KeyboardInterrupt:
         print("\n[imu_bridge] Shutting down.", flush=True)
