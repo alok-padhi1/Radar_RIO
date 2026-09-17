@@ -87,14 +87,18 @@ def send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=(0.05, 0.05
     conn.mav.vision_speed_estimate_send(t_usec, vx, vy, vz, cov, reset_counter=0)
 
 
-def send_distance_sensor(conn, t_boot_ms, range_m, min_range_m=0.1, max_range_m=30.0):
+def send_distance_sensor(conn, t_boot_ms, range_m, min_range_m=0.2, max_range_m=200.0):
+    """Linpowave U200A: 0.2-200 m, +/-0.2 m, 20 Hz. These limits MUST match
+    RNGFND1_MIN_CM / RNGFND1_MAX_CM on the autopilot or ArduPilot will
+    silently discard in-range readings."""
     conn.mav.distance_sensor_send(
         t_boot_ms,
-        int(min_range_m * 100), int(max_range_m * 100), int(max(range_m, 0.0) * 100),
+        int(min_range_m * 100), int(max_range_m * 100),
+        int(max(range_m, 0.0) * 100),
         mavutil.mavlink.MAV_DISTANCE_SENSOR_RADAR,
         id=1,
-        orientation=mavutil.mavlink.MAV_SENSOR_ROTATION_PITCH_270,  # straight down
-        covariance=0,
+        orientation=mavutil.mavlink.MAV_SENSOR_ROTATION_PITCH_270,
+        covariance=int(20),          # 0.2 m -> 20 cm, per the message spec
     )
 
 
@@ -103,36 +107,46 @@ def run(args):
 
     rio_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     rio_sock.bind((args.rio_ip, args.rio_port))
-    rio_sock.settimeout(0.02)
-
+    import select
+    
     alt_sock = None
     if args.alt_port:
         alt_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         alt_sock.bind((args.alt_ip, args.alt_port))
-        alt_sock.settimeout(0.001)
 
-    t0_wall = time.time()
+    socks = [rio_sock] + ([alt_sock] if alt_sock else [])
+    for s in socks:
+        s.setblocking(False)
+
+    t0_wall = time.monotonic()
+    t_offset_us = None
 
     while True:
-        try:
+        # Opportunistically refresh SYSTEM_TIME mapping
+        st = conn.recv_match(type='SYSTEM_TIME', blocking=False)
+        if st is not None:
+            t_offset_us = st.time_boot_ms * 1000 - int(time.monotonic() * 1e6)
+
+        ready, _, _ = select.select(socks, [], [], 0.05)
+        
+        if rio_sock in ready:
             data, _ = rio_sock.recvfrom(64)
             t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz = RIO_PKT.unpack(data)
-            t_usec = int((time.time() - t0_wall) * 1e6)
+            
+            # Use the RADAR FRAME time, not "now" -- the pipeline latency
+            # is what EK3_VIS_DELAY must compensate, and it's measured from t_frame.
+            t_usec = int(t_frame * 1e6) + (t_offset_us or 0)
+            
             if args.autopilot == 'px4':
                 send_odometry_px4(conn, t_usec, vx, vy, vz, cov_v_diag=(cxx, cyy, czz))
             else:
                 send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=(cxx, cyy, czz))
-        except socket.timeout:
-            pass
 
-        if alt_sock is not None:
-            try:
-                adata, _ = alt_sock.recvfrom(64)
-                (range_m,) = ALT_PKT.unpack(adata[:4])
-                t_boot_ms = int((time.time() - t0_wall) * 1e3)
-                send_distance_sensor(conn, t_boot_ms, range_m)
-            except socket.timeout:
-                pass
+        if alt_sock in ready:
+            adata, _ = alt_sock.recvfrom(64)
+            (range_m,) = ALT_PKT.unpack(adata[:4])
+            t_boot_ms = int(time.monotonic() * 1000 + (t_offset_us or 0) // 1000)
+            send_distance_sensor(conn, t_boot_ms, range_m)
 
 
 def self_test():

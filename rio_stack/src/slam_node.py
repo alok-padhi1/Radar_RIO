@@ -276,14 +276,19 @@ class RadarSLAM:
         """Store the latest IMU fused attitude [roll, pitch, yaw] in radians."""
         self.last_attitude = attitude
 
-    def _gravity_correct(self, T: np.ndarray) -> np.ndarray:
+    def _gravity_correct(self, T: np.ndarray, agl_m: float | None = None) -> np.ndarray:
         """Clamp pitch and roll to 0. Since the incoming point clouds are now
         dynamically leveled by the IMU *before* GICP, the matched pose should
         be perfectly flat. This prevents numerical noise from accumulating into
         catastrophic Z-drift (observed: 191 m in 96 s).
         """
-        # Extract yaw from GICP's rotation matrix (ZYX decomposition)
         R_gicp = T[:3, :3]
+        # Levelling assumption check: if GICP has drifted more than ~10 deg off
+        # level, the yaw extraction below is no longer valid and something
+        # upstream (levelling, deskew, correspondence) has failed.
+        if abs(R_gicp[2, 0]) > 0.17:            # |sin(pitch)| > 10 deg
+            logging.warning(f"[slam] GICP pose is {math.degrees(math.asin(abs(R_gicp[2,0]))):.0f} "
+                             f"deg off level -- levelling or deskew is broken.")
         yaw_gicp = math.atan2(R_gicp[1, 0], R_gicp[0, 0])
 
         if self.trust_imu_yaw and self.last_attitude is not None:
@@ -300,6 +305,21 @@ class RadarSLAM:
 
         T_out = T.copy()
         T_out[:3, :3] = R_corrected
+
+        # HARD Z CONSTRAINT. The rotation clamp alone does not bound Z (the
+        # translation column was previously passed through untouched, despite
+        # the docstring's claim). The belly altimeter is the only absolute
+        # height reference in the system; without it Z is a free-running
+        # integrator. Map frame is Z-DOWN, so world Z = -(AGL) + takeoff offset.
+        if agl_m is not None and math.isfinite(agl_m):
+            if not hasattr(self, 'agl_at_bootstrap') or self.agl_at_bootstrap is None:
+                self.agl_at_bootstrap = agl_m
+            z_meas = -(agl_m - self.agl_at_bootstrap)
+            # Complementary blend, not a hard snap -- a hard snap injects a step
+            # into the pose chain that GICP then tries to undo on the next frame.
+            alpha = 0.15
+            T_out[2, 3] = (1.0 - alpha) * T_out[2, 3] + alpha * z_meas
+
         return T_out
 
     def _build_point_to_plane_hessian(self, source, target, correspondence_set, T):
@@ -415,7 +435,7 @@ class RadarSLAM:
         return float(np.min(r[in_cone]))
 
     def process_keyframe(self, xyz_body: np.ndarray, v_radial: np.ndarray,
-                          t: float, omega: np.ndarray = None) -> dict:
+                          t: float, omega: np.ndarray = None, agl_m: float | None = None) -> dict:
         if xyz_body.shape[0] < 8:
             return {'valid': False, 'reason': 'too_few_points'}
 
@@ -489,7 +509,7 @@ class RadarSLAM:
         # Inject IMU gravity into the initial guess so GICP starts searching
         # from a gravity-consistent orientation (prevents tilted local minima).
         if self.last_attitude is not None:
-            T_pred = self._gravity_correct(T_pred)
+            T_pred = self._gravity_correct(T_pred, agl_m=agl_m)
 
         # -- Stage 4B: GICP always runs; degeneracy is now DISCOVERED from its
         #    own Hessian, not predicted in advance from point-cloud shape. --
@@ -531,7 +551,7 @@ class RadarSLAM:
         fitness, rmse = result.fitness, result.inlier_rmse
 
         if self.last_attitude is not None:
-            self.T_world = self._gravity_correct(self.T_world)
+            self.T_world = self._gravity_correct(self.T_world, agl_m=agl_m)
 
         self.pose_chain.append(self.T_world.copy())
         self._merge_into_map(source, self.T_world)
@@ -620,6 +640,14 @@ def run(args):
         imu_sock.settimeout(0.5)
         print(f"[slam_node] IMU listener on {args.listen_ip}:{args.imu_port}")
 
+    alt_sock = None
+    latest_agl = None
+    if args.alt_port and args.alt_port > 0:
+        alt_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        alt_sock.bind((args.listen_ip, args.alt_port))
+        alt_sock.settimeout(0.5)
+        print(f"[slam_node] Altimeter listener on {args.listen_ip}:{args.alt_port}")
+
     # Parse comma-separated pose ports (e.g. "5011,5014") for multi-consumer
     # forwarding: nav_node, visualizer, and gps_logger each get their own port.
     pose_ports = []
@@ -635,6 +663,8 @@ def run(args):
     if rio_receiver: rio_receiver.start()
     imu_receiver = UdpReceiver(imu_sock) if imu_sock else None
     if imu_receiver: imu_receiver.start()
+    alt_receiver = UdpReceiver(alt_sock) if alt_sock else None
+    if alt_receiver: alt_receiver.start()
     points_receiver = UdpReceiver(points_sock)
     points_receiver.start()
 
@@ -658,6 +688,11 @@ def run(args):
                         _t, _r, _p, _y, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
                         latest_omega = np.array([ox, oy, oz])
                         latest_attitude = np.array([_r, _p, _y])
+
+            if alt_receiver is not None:
+                for data in alt_receiver.drain():
+                    if len(data) >= 4:
+                        (latest_agl,) = struct.unpack('<f', data[:4])
                         slam.update_attitude(latest_attitude)
                         last_imu_t = time.monotonic()
                         
@@ -676,10 +711,19 @@ def run(args):
                 if pts_radar is None:
                     continue
                 t = time.monotonic()
-                # SLAM always needs leveled points for _gravity_correct() to work.
-                # This is independent of the RIO solver's imu_level_points setting.
+                # Levelling is REQUIRED for flight: _gravity_correct() assumes
+                # the incoming cloud is already gravity-aligned, and RIO must
+                # operate in the SAME frame or the constant-velocity prediction
+                # at line 474 mixes frames. Driven by the supervisor flag, and
+                # fatal if attitude is missing -- silently falling back to the
+                # unlevelled path is how the two nodes end up disagreeing.
+                if slam.imu_level_points and latest_attitude is None:
+                    logging.error("imu_level_points requested but no IMU attitude "
+                                   "available -- dropping frame rather than silently "
+                                   "processing it unlevelled.")
+                    continue
                 xyz_body = mount.to_body(pts_radar[:, :3], latest_attitude,
-                                         imu_level_points=True)
+                                         imu_level_points=slam.imu_level_points)
                 v_radial = pts_radar[:, 3]
                 accum.add(t, xyz_body, v_radial)
                 frame_i += 1
@@ -696,7 +740,7 @@ def run(args):
             accum.clear()
             accum.t_last_kf = t
 
-            result = slam.process_keyframe(merged_xyz, merged_v, t, omega=omega_leveled)
+            result = slam.process_keyframe(merged_xyz, merged_v, t, omega=omega_leveled, agl_m=latest_agl)
             if result['valid']:
                 n_map = len(slam.map_cloud.points)
                 fwd = result.get('fwd_range', float('inf'))
@@ -710,7 +754,7 @@ def run(args):
                       f"fwd_range={fwd:.1f}m")
                 if pose_out is not None:
                     T = result['T'].astype('<f8').tobytes()
-                    fwd_send = fwd if math.isfinite(fwd) else -1.0  # -1.0 = "nothing in cone"
+                    fwd_send = fwd if math.isfinite(fwd) else 1.0e6  # 1e6 = "nothing in cone"
                     pkt = POSE_PKT_HDR.pack(t, n_map, fwd_send) + T
                     for pp in pose_ports:
                         pose_out.sendto(pkt, (args.pose_ip, pp))
@@ -745,8 +789,10 @@ def main():
     p.add_argument('--listen-port', type=int, default=5010,
                     help="matches radar_fanout.py --slam-port default")
     p.add_argument('--rio-ip', default='127.0.0.1')
-    p.add_argument('--rio-port', type=int, default=5006,
-                    help="matches doppler_rio.py --forward-port, for the Doppler-prior/deskew hint")
+    p.add_argument('--rio-port', type=int, default=5021,
+                    help="UDP port to listen for RIO's body-frame velocity (port+1)")
+    p.add_argument('--alt-port', type=int, default=5032,
+                    help="UDP port to listen for belly altimeter Z-updates")
     p.add_argument('--pose-ip', default='127.0.0.1')
     p.add_argument('--pose-port', default='5011',
                     help="Comma-separated UDP ports for pose forwarding "

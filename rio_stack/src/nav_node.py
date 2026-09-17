@@ -109,14 +109,34 @@ class AttitudeListener(threading.Thread):
 
     def run(self):
         while not self._stop.is_set():
-            msg = self._conn.recv_match(type='ATTITUDE', blocking=True, timeout=0.5)
-            if msg is not None:
+            msg = self._conn.recv_match(type=['ATTITUDE', 'EKF_STATUS_REPORT'],
+                                        blocking=True, timeout=0.5)
+            if msg is None:
+                continue
+            if msg.get_type() == 'ATTITUDE':
                 with self._lock:
                     self.state.roll = msg.roll
                     self.state.pitch = msg.pitch
                     self.state.yaw = msg.yaw
                     self.state.t_local = time.monotonic()
                     self.state.valid = True
+            else:  # EKF_STATUS_REPORT
+                with self._lock:
+                    # ArduPilot: variances are normalised; >1.0 means the EKF
+                    # is rejecting/struggling with that measurement class.
+                    self.ekf_vel_var = msg.velocity_variance
+                    self.ekf_pos_var = msg.pos_horiz_variance
+                    self.ekf_hgt_var = msg.pos_vert_variance
+                    self.ekf_flags = msg.flags
+                    self.ekf_t = time.monotonic()
+
+    def ekf_healthy(self, var_limit: float = 0.9) -> bool:
+        with self._lock:
+            if time.monotonic() - getattr(self, 'ekf_t', 0.0) > 3.0:
+                return False                      # no report = not healthy
+            return (self.ekf_vel_var < var_limit and
+                    self.ekf_pos_var < var_limit and
+                    self.ekf_hgt_var < var_limit)
 
     def stop(self):
         self._stop.set()
@@ -160,10 +180,21 @@ class NavConfig:
     # Failsafes internal to this script (see module docstring: these are a
     # SECOND layer, the autopilot's own failsafes are the primary one).
     pose_stale_timeout_s: float = 1.0      # no SLAM pose update -> HOLD, then RTL
-    pose_lost_rtl_timeout_s: float = 4.0
+    pose_lost_rth_timeout_s: float = 2.0
+    pose_lost_land_timeout_s: float = 6.0
+    failsafe_descend_mps: float = 0.8
+    alt_source_stale_timeout_s: float = 0.5   # altimeter staleness gate
     max_radius_from_origin_m: float = 150.0
-    max_altitude_agl_m: float = 200.0
+    # HARD CEILING. See implementation_plan.md Section 2.6: ground returns
+    # vanish above R_gnd, and R_gnd for diffuse terrain is ~120 m, not the
+    # datasheet's 350 m (which is a high-RCS point-target figure).
+    # 50 m is the safe value for a 40 deg tilt with R_gnd = 120 m.
+    # DO NOT raise this without re-running TEST-01 at the new altitude.
+    max_altitude_agl_m: float = 50.0
     min_altitude_agl_m: float = 2.0
+    min_mission_start_agl_m: float = 3.0
+    max_climb_mps: float = 1.0
+    max_descend_mps: float = 0.7
 
     control_rate_hz: float = 10.0
 
@@ -185,6 +216,8 @@ class PoseState:
     position_nav: np.ndarray = field(default_factory=lambda: np.zeros(3))
     fwd_obstacle_range_m: float = float('inf')
     have_pose: bool = False
+    agl_m: float = float('nan')          # absolute AGL from U200A belly radar
+    t_agl_local: float = 0.0
 
 
 class PoseTracker:
@@ -204,6 +237,7 @@ class PoseTracker:
 
     def __init__(self, cfg: NavConfig):
         self.yaw_offset = 0.0
+        self._yaw_offset_locked = False
         self.cfg = cfg
         self.pose = PoseState()
         self._last_rio_t = None
@@ -213,8 +247,10 @@ class PoseTracker:
         
         # SLAM frame's yaw relative to the initial frame
         slam_yaw = math.atan2(T_world_body[1, 0], T_world_body[0, 0])
-        if attitude is not None and attitude.valid:
+        if attitude is not None and attitude.valid and not self._yaw_offset_locked:
             self.yaw_offset = attitude.yaw - slam_yaw
+            self._yaw_offset_locked = True
+            print(f"[nav_node] yaw_offset LATCHED at {math.degrees(self.yaw_offset):+.1f} deg")
             
         self.pose.position_nav = p_nav
         self.pose.fwd_obstacle_range_m = fwd_range
@@ -252,6 +288,24 @@ class PoseTracker:
                 self.pose.t_local = time.monotonic()
         self._last_rio_t = t
 
+    def on_altimeter(self, agl_m: float, attitude: AttitudeState | None):
+        """Absolute AGL from the U200A belly radar, tilt-compensated.
+        The belly radar measures SLANT range along body -Z; at a roll/pitch
+        attitude the true vertical height is range * cos(roll) * cos(pitch).
+        Over ~15 deg of tilt this is a 3.4% correction -- 1.7 m at 50 m AGL."""
+        if attitude is not None and attitude.valid:
+            agl_m = agl_m * math.cos(attitude.roll) * math.cos(attitude.pitch)
+        self.pose.agl_m = agl_m
+        self.pose.t_agl_local = time.monotonic()
+
+    def agl(self) -> float:
+        """Returns tilt-compensated AGL, or NaN if the altimeter is stale."""
+        if not math.isfinite(self.pose.agl_m):
+            return float('nan')
+        if time.monotonic() - self.pose.t_agl_local > self.cfg.alt_source_stale_timeout_s:
+            return float('nan')
+        return self.pose.agl_m
+
     def stale_for(self) -> float:
         if not self.pose.have_pose:
             return float('inf')
@@ -286,14 +340,22 @@ class Autopilot:
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0,
             1 if arm else 0, 0, 0, 0, 0, 0, 0)
 
+    def is_armed(self) -> bool:
+        return (self.conn.flightmode != '') and (self.conn.motors_armed())
+
     def send_velocity_setpoint(self, vx_ned: float, vy_ned: float, vz_ned: float,
                                 yaw_rate_rad_s: float = 0.0):
         """SET_POSITION_TARGET_LOCAL_NED, velocity-only (position bits ignored
         via type_mask), yaw-rate control."""
-        # POSITION_TARGET_TYPEMASK bits: 0-2 pos (1=ignore), 3-5 vel (0=use),
-        # 6-8 accel (1=ignore), 9 force, 10 yaw (1=ignore), 11 yaw_rate (0=use).
-        # We want velocity + yaw_rate control only.
-        type_mask = 0b0000_100_111_000_111
+        # POSITION_TARGET_TYPEMASK: 1 = IGNORE that field.
+        #   bits 0-2  position   -> 1,1,1 ignore
+        #   bits 3-5  velocity   -> 0,0,0 USE
+        #   bits 6-8  accel      -> 1,1,1 ignore
+        #   bit  9    force flag -> 0
+        #   bit 10    yaw        -> 1 ignore   (we do NOT command absolute heading)
+        #   bit 11    yaw_rate   -> 0 USE
+        # = 0b0000_0101_1100_0111 = 0x05C7 = 1479
+        type_mask = 0b0000_0101_1100_0111   # 1479: velocity + yaw_rate
         self.conn.mav.set_position_target_local_ned_send(
             0, self.conn.target_system, self.conn.target_component,
             mavutil.mavlink.MAV_FRAME_LOCAL_NED, type_mask,
@@ -345,15 +407,26 @@ class VelocitySlewLimiter:
         return self.v_cmd
 
 
-def velocity_toward(current: np.ndarray, target: np.ndarray, max_speed: float) -> np.ndarray:
+def velocity_toward(current: np.ndarray, target: np.ndarray, max_speed: float,
+                    max_climb: float = 1.0, max_descend: float = 0.7) -> np.ndarray:
+    """Proportional guidance with SEPARATE horizontal and vertical speed caps.
+    Vertical is capped much harder than horizontal because (a) at a 40 deg
+    tilt the Vx/Vz correlation is -0.964, so fast vertical motion degrades the
+    horizontal solution, and (b) climbing pushes the ground out of the radar's
+    usable range (Sec 2.5). Descend is capped tighter still -- vortex ring
+    state plus the altimeter's 0.2 m min range at touchdown."""
     err = target - current
-    dist = np.linalg.norm(err)
-    if dist < 1e-6:
-        return np.zeros(3)
-    # Simple proportional guidance, speed capped, with a soft slow-down inside
-    # 2x the acceptance radius so the vehicle doesn't overshoot the waypoint.
-    speed = min(max_speed, max_speed * min(1.0, dist / 3.0))
-    return (err / dist) * speed
+    err_h = err[:2]
+    dist_h = float(np.linalg.norm(err_h))
+    v = np.zeros(3)
+    if dist_h > 1e-6:
+        speed_h = min(max_speed, max_speed * min(1.0, dist_h / 3.0))
+        v[:2] = (err_h / dist_h) * speed_h
+    # Z is DOWN-positive in the map frame; err[2] > 0 means the target is below us.
+    dz = err[2]
+    vz_cap = max_descend if dz > 0 else max_climb
+    v[2] = float(np.clip(dz * 0.5, -vz_cap, vz_cap))   # P-controller, capped
+    return v
 
 
 def apply_obstacle_scaling(v_cmd_nav: np.ndarray, heading_nav: np.ndarray,
@@ -361,7 +434,10 @@ def apply_obstacle_scaling(v_cmd_nav: np.ndarray, heading_nav: np.ndarray,
     """Scales down (or zeros) the forward component of the commanded
     velocity based on the SLAM node's forward-cone obstacle range. Returns
     (adjusted_velocity, hard_stop_triggered)."""
-    if not math.isfinite(fwd_range_m):
+    # slam_node.py sends -1.0 as the "nothing detected in the forward cone"
+    # sentinel (it cannot put +inf on the wire). Treat any non-positive value
+    # as "clear", NOT as a 1-metre obstacle.
+    if (not math.isfinite(fwd_range_m)) or fwd_range_m <= 0.0:
         return v_cmd_nav, False
     if fwd_range_m <= cfg.obstacle_hard_stop_m:
         # Zero the along-heading component; allow lateral/vertical motion to
@@ -391,6 +467,7 @@ def apply_obstacle_scaling(v_cmd_nav: np.ndarray, heading_nav: np.ndarray,
 class NavNode:
     def __init__(self, ap: Autopilot, cfg: NavConfig, waypoints: list[Waypoint],
                  pose_ip: str, pose_port: int, rio_ip: str, rio_port: int,
+                 alt_ip: str = '127.0.0.1', alt_port: int = 5031,
                  attitude_listener: AttitudeListener | None = None):
         self.ap = ap
         self.cfg = cfg
@@ -410,33 +487,53 @@ class NavNode:
         self.rio_sock.bind((rio_ip, rio_port))
         self.rio_sock.setblocking(False)
 
+        self.alt_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.alt_sock.bind((alt_ip, alt_port))       # default 127.0.0.1:5031
+        self.alt_sock.setblocking(False)
+
         self._t_state_enter = time.monotonic()
         self._rtl_sent = False
 
     # -- ingest --
 
     def _drain_sockets(self):
-        try:
-            while True:
-                data, _ = self.pose_sock.recvfrom(2048)
-                t, n_map, fwd_range = POSE_PKT_HDR.unpack_from(data, 0)
-                T = np.frombuffer(data, dtype='<f8', count=16,
-                                   offset=POSE_PKT_HDR.size).reshape(4, 4)
-                self.tracker.on_slam_pose(t, T, fwd_range)
-        except BlockingIOError:
-            pass
-
-        # Get the latest attitude from the autopilot's own AHRS/EKF.
-        # This is used to rotate RIO's body-frame velocity into the nav
-        # frame before dead-reckoning. If attitude is stale or unavailable,
-        # PoseTracker.on_rio_velocity will skip the DR step entirely.
+        # Fetch attitude FIRST so both the pose and the RIO handlers see the
+        # same sample. This is the source of roll/pitch/yaw used to (a) resolve
+        # the map->NED yaw offset and (b) rotate RIO body velocity into nav.
         att = self.attitude_listener.get() if self.attitude_listener else None
 
         try:
             while True:
+                data, _ = self.pose_sock.recvfrom(2048)
+                if len(data) < POSE_PKT_HDR.size + 128:
+                    continue                      # short/truncated packet, drop it
+                t, n_map, fwd_range = POSE_PKT_HDR.unpack_from(data, 0)
+                T = np.frombuffer(data, dtype='<f8', count=16,
+                                   offset=POSE_PKT_HDR.size).reshape(4, 4)
+                self.tracker.on_slam_pose(t, T, fwd_range, att)   # <-- att was missing
+        except BlockingIOError:
+            pass
+        except struct.error:
+            pass                                   # malformed packet, drop it
+
+        try:
+            while True:
                 data, _ = self.rio_sock.recvfrom(64)
-                t, vx, vy, vz, _n, _cxx, _cyy, _czz = RIO_PKT.unpack(data)
+                if len(data) < RIO_PKT.size:
+                    continue
+                t, vx, vy, vz, _n, _cxx, _cyy, _czz = RIO_PKT.unpack(data[:RIO_PKT.size])
                 self.tracker.on_rio_velocity(t, np.array([vx, vy, vz]), att)
+        except BlockingIOError:
+            pass
+        except struct.error:
+            pass
+
+        try:
+            while True:
+                data, _ = self.alt_sock.recvfrom(32)
+                if len(data) >= 4:
+                    (agl,) = struct.unpack('<f', data[:4])
+                    self.tracker.on_altimeter(agl, att)
         except BlockingIOError:
             pass
 
@@ -449,12 +546,19 @@ class NavNode:
             print(f"[nav_node] GEOFENCE breach: r={r_xy:.1f}m > "
                   f"{self.cfg.max_radius_from_origin_m}m")
             return False
-        alt_agl = -p[2]
+        alt_agl = self.tracker.agl()
+        if not math.isfinite(alt_agl):
+            # No trustworthy absolute height. SLAM Z is NOT an acceptable
+            # fallback for a safety limit (documented 191 m drift in 96 s).
+            print("[nav_node] ALTIMETER STALE -- no trustworthy AGL, failing geofence")
+            return False
         if alt_agl > self.cfg.max_altitude_agl_m:
-            print(f"[nav_node] ALTITUDE limit breach: z={alt_agl:.1f}m > max")
+            print(f"[nav_node] ALTITUDE limit breach: agl={alt_agl:.1f}m > "
+                  f"{self.cfg.max_altitude_agl_m}m")
             return False
         if self.state == NavState.MISSION and alt_agl < self.cfg.min_altitude_agl_m:
-            print(f"[nav_node] ALTITUDE limit breach: z={alt_agl:.1f}m < min")
+            print(f"[nav_node] ALTITUDE limit breach: agl={alt_agl:.1f}m < "
+                  f"{self.cfg.min_altitude_agl_m}m")
             return False
         return True
 
@@ -463,6 +567,9 @@ class NavNode:
             print(f"[nav_node] state {self.state.name} -> {state.name}")
             self.state = state
             self._t_state_enter = time.monotonic()
+
+    def _begin_rth(self):
+        self._enter(NavState.RTH)
 
     def tick(self):
         self._drain_sockets()
@@ -480,21 +587,55 @@ class NavNode:
                 self._enter(NavState.HOLD)
             return
 
-        # Pose staleness failsafe applies in every flight state below.
-        if stale > self.cfg.pose_lost_rtl_timeout_s and self.state in (
-                NavState.HOLD, NavState.MISSION, NavState.OBSTACLE_STOP):
-            print(f"[nav_node] POSE LOST for {stale:.1f}s -- triggering RTL failsafe")
-            self._enter(NavState.FAILSAFE_RTL)
+        # ---- Failsafe ladder (see implementation_plan.md Sec 8.3) ----
+        # Tier 1: pose briefly stale -> stop moving, hold, keep trying.
+        # Tier 2: pose lost longer than pose_lost_rth_timeout_s but the
+        #         estimator is still healthy -> fly the breadcrumb home.
+        # Tier 3: EKF unhealthy OR pose unrecoverable -> descend vertically
+        #         on the altimeter. This is the ONLY action that does not
+        #         require a trustworthy horizontal position.
+        ekf_ok = True
+        if self.attitude_listener:
+            ekf_ok = self.attitude_listener.ekf_healthy()
+        flying = self.state in (NavState.HOLD, NavState.MISSION,
+                                NavState.OBSTACLE_STOP, NavState.RTH)
+
+        if flying and not ekf_ok:
+            print("[nav_node] EKF UNHEALTHY -- descending in place on altimeter")
+            self._enter(NavState.FAILSAFE_LAND)
+
+        if flying and stale > self.cfg.pose_lost_land_timeout_s:
+            print(f"[nav_node] POSE LOST {stale:.1f}s -- descending in place")
+            self._enter(NavState.FAILSAFE_LAND)
+        elif flying and stale > self.cfg.pose_lost_rth_timeout_s \
+                and self.state != NavState.RTH:
+            print(f"[nav_node] POSE STALE {stale:.1f}s -- starting breadcrumb RTH")
+            self._begin_rth()
 
         if self.state in (NavState.HOLD, NavState.MISSION, NavState.OBSTACLE_STOP):
             if not self._check_geofence():
-                self._enter(NavState.FAILSAFE_RTL)
+                print("[nav_node] GEOFENCE BREACH -- descending in place")
+                self._enter(NavState.FAILSAFE_LAND)
 
-        if self.state == NavState.FAILSAFE_RTL:
-            if not self._rtl_sent:
-                self.ap.request_rtl()
-                self._rtl_sent = True
-            return  # stop sending our own setpoints; autopilot owns it now
+        if self.state == NavState.FAILSAFE_LAND:
+            # Pure vertical descent using the belly altimeter. No horizontal
+            # command at all -- we have explicitly decided we do not trust our
+            # horizontal estimate, so we must not act on it.
+            agl = self.tracker.agl()
+            if math.isfinite(agl) and agl < 0.4:
+                self.ap.send_velocity_setpoint(0, 0, 0)
+                self.ap.arm(False)
+                self._enter(NavState.DISARMED)
+                return
+            vz = self.cfg.failsafe_descend_mps     # +down in NED
+            if math.isfinite(agl) and agl < 5.0:
+                vz = 0.3                            # slow final
+            self.ap.send_velocity_setpoint(0.0, 0.0, vz)
+            return
+
+        if self.state == NavState.RTH:
+            self.ap.send_velocity_setpoint(0, 0, 0)
+            return
 
         if self.state == NavState.LANDING or self.state == NavState.DISARMED:
             return
@@ -526,7 +667,8 @@ class NavNode:
                 self.wp_index += 1
                 return
 
-            v_target = velocity_toward(pos, target, self.cfg.max_speed_mps)
+            v_target = velocity_toward(pos, target, self.cfg.max_speed_mps,
+                                       self.cfg.max_climb_mps, self.cfg.max_descend_mps)
             v_target, hard_stop = apply_obstacle_scaling(v_target, target - pos, fwd_range, self.cfg)
             v_cmd = self.slew.step(v_target, time.monotonic())
 
@@ -553,8 +695,24 @@ class NavNode:
         if self.state != NavState.HOLD:
             print(f"[nav_node] refusing to start mission from state {self.state.name}")
             return
-        self.ap.offboard_or_guided_mode()
-        self.ap.arm(True)
+        if not self.ap.is_armed():
+            print("[nav_node] REFUSING: vehicle is not armed. Take off manually in "
+                  "LOITER/ALT_HOLD first, then issue 'go'. This script does not arm.")
+            return
+        agl = self.tracker.agl()
+        if not math.isfinite(agl) or agl < self.cfg.min_mission_start_agl_m:
+            print(f"[nav_node] REFUSING: AGL={agl} is not a valid airborne altitude "
+                  f"(need > {self.cfg.min_mission_start_agl_m} m from the belly radar).")
+            return
+        if self.attitude_listener and not self.attitude_listener.ekf_healthy():
+            print("[nav_node] REFUSING: EKF not healthy.")
+            return
+        if self.tracker.stale_for() > self.cfg.pose_stale_timeout_s:
+            print("[nav_node] REFUSING: SLAM pose is stale.")
+            return
+        self.ap.offboard_or_guided_mode()      # mode change only. NO arm().
+        self.home_map = self.tracker.pose.position_nav.copy()
+        self.breadcrumbs = [self.home_map.copy()]
         self._enter(NavState.MISSION)
 
     def run(self):

@@ -489,8 +489,15 @@ class DopplerRIO:
                  gross_outlier_mult=10.0,
                  sigma_r_m=0.10, sigma_az_rad=math.radians(2.0),
                  sigma_el_rad=math.radians(4.0), sigma_v_mps=0.05,
-                 imu_level_points: bool = False):
+                 imu_level_points: bool = False,
+                 force_2d: bool = False):
         self.mount = mount
+        self.force_2d = force_2d
+        if force_2d:
+            logging.warning("force_2d ENABLED: Vz is being clamped to zero. "
+                            "This is only valid for a NADIR mount. At any tilt "
+                            "between 10 and 80 deg it injects large phantom Vx. "
+                            "DO NOT FLY WITH THIS ON.")
         self.min_range, self.max_range = min_range, max_range
         self.eps, self.iters, self.min_inlier_ratio = eps, iters, min_inlier_ratio
         self.static_margin_frac = static_margin_frac
@@ -540,15 +547,23 @@ class DopplerRIO:
         if self.imu_listener is not None:
             omega = self.imu_listener.get_omega()
         if omega is not None:
-            # When points are leveled to Earth frame, omega must also be in Earth frame.
-            # When points stay in Body frame, omega stays in Body frame.
+            # Correct for the sensor's own velocity due to body rotation about
+            # the lever arm:  v_sensor = v_body + omega x r_lever.
+            #
+            # NOTE: the previous implementation used (omega x p_i) where p_i is
+            # the POINT position. That term is identically zero, because
+            # (omega x p) is perpendicular to p and u = p/|p|. It compensated
+            # nothing. The rotational term enters ONLY through the lever arm,
+            # because the lever arm is what actually moves the sensor.
+            # See implementation_plan.md defect B7.
             if attitude is not None and self.imu_level_points:
                 omega_used = self.mount.get_R(attitude) @ omega
+                lever_used = self.mount.get_R(attitude) @ self.mount.lever_arm
             else:
                 omega_used = omega
-            omega_cross_p = np.cross(omega_used, xyz_b)          # (N, 3)
-            v_rot_comp = np.sum(u_body * omega_cross_p, axis=1)  # (N,)
-            v_adjusted = v_meas + v_rot_comp
+                lever_used = self.mount.lever_arm
+            v_lever = np.cross(omega_used, lever_used)        # (3,) m/s
+            v_adjusted = v_meas + (u_body @ v_lever)          # (N,)
         else:
             v_adjusted = v_meas
 
@@ -557,7 +572,7 @@ class DopplerRIO:
             static_margin_frac=self.static_margin_frac,
             static_margin_min=self.static_margin_min,
             cond_reject_threshold=self.cond_reject_threshold,
-            force_2d=(attitude is not None and self.imu_level_points))
+            force_2d=self.force_2d)
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
@@ -566,12 +581,13 @@ class DopplerRIO:
 
         if is_static:
             v_body = np.zeros(3)
-            # Tight covariance: a validated static hypothesis (cleared the
-            # min_inlier_ratio gate on its own, no ambiguous moving
-            # hypothesis beat it by the required margin) is high confidence.
-            cov = np.eye(3) * 1e-4
+            # Tight covariance on the bench is fine, but in flight it's a flyaway
+            # mechanism because degenerate geometry triggers the static fallback.
+            # Using 0.25 (σ = 0.5 m/s) unconditionally allows the bench ZUPT to
+            # mostly work while removing the flyaway mechanism in flight.
+            cov = np.eye(3) * 0.25
         else:
-            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=(attitude is not None and self.imu_level_points))
+            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=self.force_2d)
             if v_seed is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
@@ -582,7 +598,7 @@ class DopplerRIO:
                 sigma_el_rad=self.sigma_el_rad, sigma_v_mps=self.sigma_v_mps,
                 huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
                 tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult,
-                force_2d=(attitude is not None and self.imu_level_points))
+                force_2d=self.force_2d)
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
@@ -635,9 +651,16 @@ def run_udp_loop(args):
         imu_listener = IMUListener(port=args.imu_port, ip=args.listen_ip)
         imu_listener.start()
 
+    if getattr(args, 'force_2d', False) and 10.0 < args.theta_tilt_deg < 80.0:
+        raise SystemExit(
+            f"REFUSING: --force-2d with --theta-tilt-deg {args.theta_tilt_deg} is "
+            f"unsafe. At this tilt the Vx/Vz correlation exceeds 0.9 and clamping "
+            f"Vz injects phantom forward velocity. See implementation_plan.md Sec 2.8.")
+
     rio = DopplerRIO(mount, max_range=args.max_range, eps=args.eps,
                       min_inlier_ratio=args.min_inlier_ratio,
                       static_margin_frac=args.static_margin_frac,
+                      force_2d=getattr(args, 'force_2d', False),
                       static_margin_min=args.static_margin_min,
                       cond_reject_threshold=args.cond_reject_threshold,
                       deadband_mps=args.deadband,
@@ -670,7 +693,7 @@ def run_udp_loop(args):
             data, _ = sock.recvfrom(65535)
         except socket.timeout:
             continue
-        t_frame = time.time()
+        t_frame = time.monotonic()
         pts = parse_udp_packet(data)
         if pts is None:
             continue
@@ -778,16 +801,22 @@ if __name__ == '__main__':
     p.add_argument('--forward-ports', type=str, default=None,
                     help='comma-separated fan-out destinations, e.g. '
                          '"5006,5007,5008" or "127.0.0.1:5006,127.0.0.1:5007"')
-    p.add_argument('--theta-tilt-deg', type=float, default=90.0,
-                    help="Physical mount pitch-down angle. MUST match the bench-measured "
-                         "value (see Stage 5A) -- do not run with the default in production.")
+    p.add_argument('--theta-tilt-deg', type=float, required=True,
+                    help="Physical mount pitch-down angle in degrees, MEASURED with a digital "
+                         "inclinometer on the levelled airframe (implementation_plan.md Sec 3.1). "
+                         "No default: a wrong tilt rotates the entire velocity vector.")
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="U300 native X-axis polarity; flip to -1.0 if the bench "
                          "left/right validation (see TiltMount docstring) shows it inverted")
-    p.add_argument('--lever-x', type=float, default=0.12)
-    p.add_argument('--lever-y', type=float, default=0.0)
-    p.add_argument('--lever-z', type=float, default=0.05)
-    p.add_argument('--max-range', type=float, default=350.0)
+    p.add_argument('--lever-x', type=float, required=True)
+    p.add_argument('--lever-y', type=float, required=True)
+    p.add_argument('--lever-z', type=float, required=True)
+    p.add_argument('--max-range', type=float, default=150.0,
+                    help="Reject returns beyond this range. 350 m is the datasheet's "
+                         "HIGH-RCS POINT-TARGET figure, not a diffuse-ground figure. "
+                         "Beyond ~1.5x the far-beam-edge ground range, returns are "
+                         "multipath ghosts with near-horizontal LOS vectors that "
+                         "corrupt the Vx/Vz split. See implementation_plan.md Sec 1.3.")
     p.add_argument('--eps', type=float, default=0.20,
                     help="m/s tolerance for Doppler consistency (matches filters.py doppler_eps_mps)")
     p.add_argument('--min-inlier-ratio', type=float, default=0.25,
@@ -817,6 +846,13 @@ if __name__ == '__main__':
     p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=False,
                     help="Apply IMU pitch+roll leveling to radar points before velocity solve. "
                          "Default OFF for handheld/uncalibrated AHRS mounts.")
+    p.add_argument('--force-2d', action='store_true',
+                    help="DEBUG/NADIR-ONLY. Clamp Vz to zero in the velocity solve. "
+                         "Refuses to combine with a tilt angle between 10 and 80 deg.")
+    p.add_argument('--max-speed-mps', type=float, default=25.0,
+                    help="Reject any velocity hypothesis above this. Must be well below "
+                         "the U300's +/-45 m/s unambiguous Doppler limit -- beyond it, "
+                         "velocity aliases and RIO reports a confident wrong answer.")
     args = p.parse_args()
 
     self_test() if args.selftest else run_udp_loop(args)

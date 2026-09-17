@@ -96,12 +96,12 @@ def build_children(args) -> list[Child]:
         rio_forward_ports.append("5007")
     if args.enable_nav:
         rio_forward_ports.append("5008")
-    if args.gps_port:
+    if args.log_gps:
         rio_forward_ports.append("5013")  # 5013 -> gps_logger
 
     # SLAM pose destination ports (comma-separated, parsed by slam_node.py)
     slam_pose_ports = ["5011"]   # default: nav_node / visualizer
-    if args.gps_port:
+    if args.log_gps:
         slam_pose_ports.append("5014")  # 5014 -> gps_logger
 
     children = [
@@ -114,6 +114,9 @@ def build_children(args) -> list[Child]:
                        "--forward-ports", ",".join(rio_forward_ports),
                        "--theta-tilt-deg", str(args.tilt_deg),
                        "--lateral-sign", str(args.lateral_sign),
+                       "--lever-x", str(args.lever_x),
+                       "--lever-y", str(args.lever_y),
+                       "--lever-z", str(args.lever_z),
                        "--eps", str(args.eps),
                        "--min-inlier-ratio", str(args.min_inlier_ratio),
                        "--cond-reject-threshold", str(args.cond_reject_threshold),
@@ -133,8 +136,12 @@ def build_children(args) -> list[Child]:
                         "--listen-port", "5010",
                         "--rio-port", "5006",
                         "--pose-port", ",".join(slam_pose_ports),
+                        "--alt-port", "5032",
                         "--theta-tilt-deg", str(args.tilt_deg),
                         "--lateral-sign", str(args.lateral_sign),
+                        "--lever-x", str(args.lever_x),
+                        "--lever-y", str(args.lever_y),
+                        "--lever-z", str(args.lever_z),
                         "--voxel-size", str(args.voxel_size),
                         "--max-corr-dist", str(args.max_corr_dist),
                         "--min-correspondences", str(args.min_correspondences),
@@ -155,7 +162,8 @@ def build_children(args) -> list[Child]:
             "mavlink_bridge", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mavlink_bridge.py"),
                                 "--autopilot", args.platform,
                                 "--mavlink-dest", args.mavlink_dest,
-                                "--rio-port", "5007"],
+                                "--rio-port", "5007",
+                                "--alt-port", "5030"],
             critical=False, start_delay_s=2.0))
     if args.enable_nav:
         if not args.waypoints:
@@ -166,7 +174,8 @@ def build_children(args) -> list[Child]:
                         "--mavlink-dest", args.mavlink_dest,
                         "--platform", args.platform,
                         "--waypoints", args.waypoints,
-                        "--pose-port", "5011", "--rio-port", "5008"],
+                        "--pose-port", "5011", "--rio-port", "5008",
+                        "--alt-port", "5031"],
                 critical=False, start_delay_s=3.0))
     if args.visualizer or args.visualizer_no_gui:
         vis_cmd = [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "visualizer_3d.py"), "--tilt-deg", str(args.tilt_deg),
@@ -174,20 +183,20 @@ def build_children(args) -> list[Child]:
         if args.visualizer_no_gui:
             vis_cmd.append("--no-gui")
         children.append(Child("vis", vis_cmd, critical=False, start_delay_s=1.5))
-    if args.gps_port:
+    if args.log_gps:
         log_dir = args.log_dir or 'logs'
         children.append(Child(
             "gps", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "gps_logger.py"),
-                    "--gps-serial", args.gps_port,
-                    "--gps-baud", str(args.gps_baud),
+                    "--mavlink-dest", args.mavlink_dest,
                     "--log-dir", log_dir,
                     "--rio-port", "5013",
-                    "--pose-port", "5014"]
+                    "--pose-port", "5014",
+                    "--alt-port", "5033"]
                     + (["--imu-port", "5022"] if args.imu_port else []),
             critical=False, start_delay_s=2.0))
     if args.imu_port:
         imu_dest_ports = ["5020", "5021"]
-        if args.gps_port:
+        if args.log_gps:
             imu_dest_ports.append("5022")
         children.append(Child(
             "imu", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "imu_bridge.py"),
@@ -196,14 +205,27 @@ def build_children(args) -> list[Child]:
                     "--pitch-offset-deg", str(args.pitch_offset_deg),
                     "--dest-ports", ",".join(imu_dest_ports)],
             critical=False, start_delay_s=0.5))
+            
+    if args.altimeter_serial:
+        children.append(Child(
+            "altimeter", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "altimeter_bridge.py"),
+                          "--port", args.altimeter_serial,
+                          "--baud", str(args.altimeter_baud),
+                          "--dest-ports", "5030,5031,5032,5033",
+                          "--lever-z", str(args.lever_z)],
+            critical=True, start_delay_s=0.5))
+            
     return children
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--port', default=None, help="serial device for radar_fanout.py")
-    p.add_argument('--tilt-deg', type=float, default=90.0,
+    p.add_argument('--tilt-deg', type=float, required=True,
                     help="Physical mount pitch-down angle. MUST match the bench-measured value.")
+    p.add_argument('--lever-x', type=float, required=True)
+    p.add_argument('--lever-y', type=float, required=True)
+    p.add_argument('--lever-z', type=float, required=True)
     p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
                     help="passed to both rio and slam -- see doppler_rio.py's TiltMount "
                          "docstring for the bench validation procedure")
@@ -238,11 +260,8 @@ def main():
                     help="run visualizer in terminal HUD mode only (no GUI window)")
     p.add_argument('--save-pcd', default=None,
                     help="Save accumulated SLAM map as .pcd on exit. Pass a filepath or directory.")
-    p.add_argument('--gps-port', default=None,
-                    help="Serial port for GPS NMEA module (e.g. /dev/ttyUSB1). "
-                         "Enables GPS ground-truth logging via gps_logger.py.")
-    p.add_argument('--gps-baud', type=int, default=9600,
-                    help="GPS serial baud rate (NEO-M8N default: 9600)")
+    p.add_argument('--log-gps', action='store_true',
+                    help="Enables gps_logger.py to record Pixhawk MAVLink GPS, IMU, Altimeter, and Radar data to a single JSONL file.")
     p.add_argument('--log-dir', default=None,
                     help="Directory for GPS+radar JSONL logs (default: logs/)")
     p.add_argument('--imu-port', default=None,
@@ -250,6 +269,10 @@ def main():
                          "Enables IMU rotation compensation via imu_bridge.py.")
     p.add_argument('--imu-baud', type=int, default=115200,
                     help="IMU/FC serial baud rate (Cube Orange USB default: 115200)")
+    p.add_argument('--altimeter-serial', default=None,
+                    help="Serial port for U200A belly altimeter (e.g. /dev/ttyUSB1).")
+    p.add_argument('--altimeter-baud', type=int, default=921600,
+                    help="Baud rate for U200A belly altimeter (default: 921600)")
     p.add_argument('--pitch-offset-deg', type=float, default=0.0,
                     help="Pitch offset to calibrate out FC mounting bias (passed to imu_bridge)")
     p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
@@ -276,6 +299,16 @@ def main():
     if args.trust_imu_yaw:
         logging.warning("⚠️  --trust-imu-yaw is ON. This relies on a calibrated magnetometer. "
                         "If you see XY drift, re-run with --no-trust-imu-yaw.")
+
+    if not args.imu_port:
+        raise SystemExit("REFUSING: flight configuration requires --imu-port. RIO and SLAM "
+                          "must share a levelled frame, which requires FC attitude.")
+    # For flight, levelling is ON for both nodes or OFF for both. Never mixed.
+    args.imu_level_points = True
+    
+    if args.enable_nav and not args.altimeter_serial:
+        raise SystemExit("REFUSING: nav requires --altimeter-serial for the vertical geofence "
+                         "and failsafe logic.")
 
     children = build_children(args)
     stop_flag = threading.Event()
