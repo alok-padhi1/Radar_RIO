@@ -32,8 +32,8 @@ import numpy as np
 # ─── Data Loading ────────────────────────────────────────────────────────────
 
 def load_log(path: str):
-    """Parse a JSONL log file into separate GPS, RIO, SLAM, and meta entries."""
-    gps, rio, slam, imu = [], [], [], []
+    """Parse a JSONL log file into separate GPS, RIO, SLAM, IMU, and Alt entries."""
+    gps, rio, slam, imu, alt = [], [], [], [], []
     meta = {}
 
     with open(path) as f:
@@ -56,10 +56,12 @@ def load_log(path: str):
                 slam.append(entry)
             elif etype == 'imu':
                 imu.append(entry)
+            elif etype == 'altimeter':
+                alt.append(entry)
             elif etype == 'meta':
                 meta = entry
 
-    return gps, rio, slam, imu, meta
+    return gps, rio, slam, imu, alt, meta
 
 
 # ─── Analysis Functions ─────────────────────────────────────────────────────
@@ -144,13 +146,13 @@ def time_align_nearest(ref_entries: list[dict], target_entries: list[dict],
     return pairs
 
 
-def compute_position_errors(slam: list[dict], gps: list[dict]) -> dict:
+def compute_position_errors(slam: list[dict], gps: list[dict], alt: list[dict] = None) -> dict:
     """Compute SLAM-vs-GPS position errors over time.
 
     For each SLAM pose, finds the nearest GPS fix and computes:
     - 3D absolute position error
     - XY (horizontal) error
-    - Z (vertical) error
+    - Z (vertical) error (using Altimeter if available, fallback to GPS)
 
     Also fits a linear trend to estimate drift rate.
     """
@@ -178,14 +180,33 @@ def compute_position_errors(slam: list[dict], gps: list[dict]) -> dict:
     errors_z = []
     times = []
 
+    pairs_alt = None
+    alt_lookup = {}
+    if alt:
+        pairs_alt = time_align_nearest(slam, alt, max_dt=0.5)
+        alt_lookup = {p[0]['t_mono']: p[1]['range_m'] for p in pairs_alt}
+
+    z_offset_slam = pairs[0][0]['pos'][2]
+    z_offset_gps = pairs[0][1]['enu'][2]
+    z_offset_alt = alt[0]['range_m'] if alt else 0.0
+
     for i, (slam_e, gps_e) in enumerate(pairs):
         sp_xy = slam_pts_aligned[i]
         gp_xy = gps_pts[i]
-        sp_z = slam_e['pos'][2]
-        gp_z = gps_e['enu'][2]
+        
+        # SLAM Z is in FRD (positive Down). We negate it so relative altitude is Up.
+        rel_sp_z = -(slam_e['pos'][2] - z_offset_slam)
+
+        t = slam_e['t_mono']
+        if alt_lookup and t in alt_lookup:
+            # Altimeter range is directly altitude (Up)
+            rel_gp_z = alt_lookup[t] - z_offset_alt
+        else:
+            # GPS ENU Z is Up
+            rel_gp_z = gps_e['enu'][2] - z_offset_gps
 
         err_xy = float(np.linalg.norm(sp_xy - gp_xy))
-        err_z  = abs(sp_z - gp_z)
+        err_z  = abs(rel_sp_z - rel_gp_z)
         err_3d = math.sqrt(err_xy**2 + err_z**2)
 
         errors_3d.append(err_3d)
@@ -259,7 +280,7 @@ def compute_velocity_errors(rio: list[dict], gps: list[dict]) -> dict:
 
 # ─── Report Printer ─────────────────────────────────────────────────────────
 
-def print_report(gps, rio, slam, imu, meta, log_path) -> bool:
+def print_report(gps, rio, slam, imu, alt, meta, log_path) -> bool:
     """Compute all metrics and print human-readable report.
 
     Returns True if all gates pass, False otherwise.
@@ -286,8 +307,10 @@ def print_report(gps, rio, slam, imu, meta, log_path) -> bool:
     print(f"  SLAM Poses:      {len(slam)}")
     if imu:
         print(f"  IMU Frames:      {len(imu)}")
+    if alt:
+        print(f"  Alt Frames:      {len(alt)}")
     if meta.get('ref_height_m'):
-        print(f"  Ref Height:      {meta['ref_height_m']:.2f} m (handheld)")
+        print(f"  Ref Height:      {meta['ref_height_m']:.2f} m (meta)")
     if rio:
         rio_hz = len(rio) / max(duration, 1)
         print(f"  RIO Rate:        {rio_hz:.1f} Hz")
@@ -320,8 +343,8 @@ def print_report(gps, rio, slam, imu, meta, log_path) -> bool:
             slam_disp_err = abs(slam_disp - gps_disp_3d) / gps_disp_3d * 100
             print(f"  SLAM displacement error: {slam_disp_err:.1f}%")
 
-    # ── Position Error (SLAM vs GPS) ──
-    pos_errs = compute_position_errors(slam, gps)
+    # ── Position Error (SLAM vs GPS/Alt) ──
+    pos_errs = compute_position_errors(slam, gps, alt)
     if pos_errs:
         print(f"\n📐 POSITION ERROR (SLAM vs GPS)  [{pos_errs['n_pairs']} time-aligned pairs]")
         print(f"  {'Metric':<22s}  {'XY (horiz)':<14s}  {'Z (vert)':<14s}  {'3D (total)':<14s}")
@@ -434,7 +457,7 @@ def print_report(gps, rio, slam, imu, meta, log_path) -> bool:
 
 # ─── NPZ Export ──────────────────────────────────────────────────────────────
 
-def save_npz(path: str, gps, rio, slam, imu):
+def save_npz(path: str, gps, rio, slam, imu, alt):
     """Export raw arrays for external plotting."""
     arrays = {}
 
@@ -458,6 +481,10 @@ def save_npz(path: str, gps, rio, slam, imu):
         arrays['imu_rpy'] = np.array([[i['roll'], i['pitch'], i['yaw']] for i in imu])
         arrays['imu_omega'] = np.array([[i['wx'], i['wy'], i['wz']] for i in imu])
 
+    if alt:
+        arrays['alt_t'] = np.array([a['t_mono'] for a in alt])
+        arrays['alt_range'] = np.array([a['range_m'] for a in alt])
+
     np.savez_compressed(path, **arrays)
     print(f"  Saved raw arrays to {path}")
 
@@ -477,9 +504,9 @@ def main():
         print(f"ERROR: File not found: {args.log_file}")
         sys.exit(1)
 
-    gps, rio, slam, imu, meta = load_log(args.log_file)
+    gps, rio, slam, imu, alt, meta = load_log(args.log_file)
 
-    if not gps and not rio and not slam and not imu:
+    if not gps and not rio and not slam and not imu and not alt:
         print("ERROR: Log file is empty or contains no recognized entries.")
         sys.exit(1)
 
@@ -487,10 +514,10 @@ def main():
         print("WARNING: No GPS data in log. Position comparison will be skipped.")
         print("         Was the GPS module connected and getting satellite fixes?")
 
-    passed = print_report(gps, rio, slam, imu, meta, args.log_file)
+    passed = print_report(gps, rio, slam, imu, alt, meta, args.log_file)
 
     if args.save_npz:
-        save_npz(args.save_npz, gps, rio, slam, imu)
+        save_npz(args.save_npz, gps, rio, slam, imu, alt)
 
     sys.exit(0 if passed else 1)
 
