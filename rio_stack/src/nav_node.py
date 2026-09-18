@@ -44,7 +44,9 @@ from enum import Enum, auto
 import numpy as np
 from pymavlink import mavutil
 
-RIO_PKT = struct.Struct('<dfffIfff')          # t, vx, vy, vz, n_inliers, cxx, cyy, czz
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes).
+# flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
+RIO_PKT = struct.Struct('<dfffIfffIBf')          # t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 POSE_PKT_HDR = struct.Struct('<dId')       # t, n_map_points, fwd_range ; + 16 float64 T
 
 
@@ -603,7 +605,7 @@ class NavNode:
                 data, _ = self.rio_sock.recvfrom(64)
                 if len(data) < RIO_PKT.size:
                     continue
-                t, vx, vy, vz, _n, _cxx, _cyy, _czz = RIO_PKT.unpack(data[:RIO_PKT.size])
+                t, vx, vy, vz, _n, _cxx, _cyy, _czz, _ntot, _flags, _cond = RIO_PKT.unpack(data[:RIO_PKT.size])
                 self.tracker.on_rio_velocity(t, np.array([vx, vy, vz]), att)
         except BlockingIOError:
             pass

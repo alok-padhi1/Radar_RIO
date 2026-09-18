@@ -46,7 +46,8 @@ import time
 from pymavlink import mavutil
 
 
-RIO_PKT = struct.Struct('<dfffIfff')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes)
+RIO_PKT = struct.Struct('<dfffIfffIBf')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 ALT_PKT = struct.Struct('<f')      # range_m -- from your altimeter radar's parser
 
 
@@ -131,7 +132,7 @@ def run(args):
         
         if rio_sock in ready:
             data, _ = rio_sock.recvfrom(64)
-            t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz = RIO_PKT.unpack(data)
+            t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz, _ntot, _flags, _cond = RIO_PKT.unpack(data)
             
             # Use the RADAR FRAME time, not "now" -- the pipeline latency
             # is what EK3_VIS_DELAY must compensate, and it's measured from t_frame.

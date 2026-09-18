@@ -219,3 +219,26 @@ The IMU reports 65–72° pitch because the rig is physically tilted 90° (IMU X
 ---
 
 *Last updated: Sep 15, 2026 19:34 IST*
+
+
+## ⏳ Change #009 — PENDING APPROVAL — Fix RIO Distance and SLAM XY Drift
+
+| Field | Value |
+|-------|-------|
+| **Date** | Sep 18, 2026 |
+| **Status** | ⏳ AWAITING ALOK'S APPROVAL |
+| **File** | `N/A` (Algorithm Tuning & Hardware Cal) |
+| **Suggested by** | AI Agent |
+
+### What Needs to Change (XY Drift < 5m)
+Currently, SLAM drifts 6-9m over 300m (~2.3% error), which is mathematically expected for open-loop mmWave SLAM. To eliminate this:
+1. **Loop Closure (Factor Graph):** Implement GTSAM or g2o so the drone recognizes its own past trajectory and mathematically erases accumulated XY drift upon returning.
+2. **IMU Pre-integration:** Tightly couple the IMU rotation rate into the GICP initial guess to constrain horizontal slipping.
+
+### What Needs to Change (RIO Distance Error)
+Currently, RIO underestimates distance by up to 60% at high speeds (20 m/s).
+1. **Radar Hardware Saturation:** The U300 max unambiguous velocity (Nyquist limit) is likely capping out around 20 m/s. **Fix:** Flash radar firmware to increase max velocity (trade-off with range resolution).
+2. **Pitch Bias Calibration:** A 1° error in the mechanical tilt calibration vs software tilt (`--tilt-deg 40.0`) will massively leak forward velocity into the Z-axis when flying at 70 km/h. **Fix:** Perform a rigorous static pitch calibration on the bench.
+3. **Verify `force_2d` is OFF:** Ensure `--force-2d` is never passed to `supervisor.py`. Forcing Z-velocity to zero while the drone is heavily pitched down will completely destroy 3D distance integration.
+
+*Last updated: Sep 18, 2026 11:15 IST*

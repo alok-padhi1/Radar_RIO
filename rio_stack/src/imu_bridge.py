@@ -11,8 +11,8 @@ over local UDP for consumption by doppler_rio.py and slam_node.py.
 Based on the team's extract_imu.py, redesigned as a headless UDP broadcaster
 instead of a terminal printer.
 
-Packet format (IMU_PKT, 32 bytes):
-    struct '<dfffffff'
+Packet format (IMU_PKT, 37 bytes):
+    struct '<dffffffBf'
     t_mono:   float64  — time.monotonic() at receive
     roll:     float32  — fused roll (rad)
     pitch:    float32  — fused pitch (rad)
@@ -20,6 +20,9 @@ Packet format (IMU_PKT, 32 bytes):
     omega_x:  float32  — rollspeed (rad/s), body X axis
     omega_y:  float32  — pitchspeed (rad/s), body Y axis
     omega_z:  float32  — yawspeed (rad/s), body Z axis
+    airborne: uint8    — 1 if FC reports IN_AIR, 0 otherwise
+    vz_ned:   float32  — FC EKF vertical velocity, NED +down (m/s)
+                         FRD body frame uses the same sign convention.
 
 Usage (standalone):
     python3 imu_bridge.py --port /dev/ttyACM0
@@ -45,7 +48,7 @@ except ImportError:
     sys.exit(1)
 
 # Wire format: matches the listener in doppler_rio.py and slam_node.py
-IMU_PKT = struct.Struct('<dffffff')  # 32 bytes
+IMU_PKT = struct.Struct('<dffffffBf')  # 37 bytes: +airborne (uint8) +vz_ned (float32)
 
 
 def main():
@@ -109,6 +112,13 @@ def main():
     msg_count = 0
     gps_count = 0
     t_last_stats = time.monotonic()
+    # State for the extended IMU packet fields.
+    # vz_ned: FC EKF vertical velocity in NED frame (+down). Initialised to
+    # 0.0 (safe: on the ground the drone is not climbing). Updated from
+    # LOCAL_POSITION_NED at the FC's native rate (usually 10-50 Hz).
+    # airborne: 1 = IN_AIR (EXTENDED_SYS_STATE landed_state==2), 0 otherwise.
+    _vz_ned: float = 0.0
+    _airborne: int = 0
 
     try:
         while True:
@@ -125,6 +135,18 @@ def main():
                         gps_count += 1
                 except OSError:
                     pass
+
+            elif msg_type == 'LOCAL_POSITION_NED':
+                # FC EKF vertical velocity. NED convention: vz > 0 means
+                # descending. FRD body frame (used by doppler_rio) shares the
+                # same sign, so we pass it through without negation.
+                _vz_ned = float(msg.vz)
+
+            elif msg_type == 'EXTENDED_SYS_STATE':
+                # landed_state: 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING
+                # Treat anything other than confirmed IN_AIR as not-airborne so
+                # the static hypothesis is only hardened during true free-flight.
+                _airborne = 1 if getattr(msg, 'landed_state', 1) == 2 else 0
                     
             elif msg_type == 'ATTITUDE':
                 t_mono = time.monotonic()
@@ -146,6 +168,8 @@ def main():
                     omega_x,
                     omega_y,
                     omega_z,
+                    _airborne,
+                    _vz_ned,
                 )
                 for port in dest_ports:
                     try:

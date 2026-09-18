@@ -39,9 +39,11 @@ import numpy as np
 
 
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
-FORWARD_PKT = struct.Struct('<dfffIfff')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz
-# IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
-IMU_PKT = struct.Struct('<dffffff')   # 32 bytes
+# Extended packet: t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
+# flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
+FORWARD_PKT = struct.Struct('<dfffIfffIBf')  # 46 bytes
+# IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
+IMU_PKT = struct.Struct('<dffffffBf')   # 37 bytes
 
 
 class IMUListener:
@@ -57,6 +59,8 @@ class IMUListener:
         self._omega = None      # (3,) np.ndarray: [omega_x, omega_y, omega_z] rad/s
         self._attitude = None   # (3,) np.ndarray: [roll, pitch, yaw] rad
         self._t_mono = 0.0
+        self._airborne = 0      # 1 = FC confirmed IN_AIR
+        self._vz_ned = 0.0      # FC EKF vertical velocity, NED +down (m/s)
         self._thread = None
         self._stop = threading.Event()
 
@@ -73,11 +77,13 @@ class IMUListener:
             try:
                 data, _ = sock.recvfrom(64)
                 if len(data) >= IMU_PKT.size:
-                    t_mono, roll, pitch, yaw, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
+                    t_mono, roll, pitch, yaw, ox, oy, oz, airborne, vz_ned = IMU_PKT.unpack(data[:IMU_PKT.size])
                     with self._lock:
                         self._omega = np.array([ox, oy, oz])
                         self._attitude = np.array([roll, pitch, yaw])
                         self._t_mono = t_mono
+                        self._airborne = int(airborne)
+                        self._vz_ned = float(vz_ned)
             except socket.timeout:
                 continue
             except Exception:
@@ -103,6 +109,21 @@ class IMUListener:
             if age > max_age_s:
                 return None
             return self._attitude.copy()
+
+    def get_airborne(self) -> bool:
+        """Returns True if the FC reports the vehicle is in the air."""
+        with self._lock:
+            return bool(self._airborne)
+
+    def get_vz_ned(self, max_age_s: float = 0.3) -> float | None:
+        """Returns the FC EKF vertical velocity (NED, +down) or None if stale.
+        sigma_vz on a Cube Orange with healthy baro is ~0.3 m/s; use 0.5 m/s
+        as the soft-prior weight to avoid fighting genuine radar information."""
+        with self._lock:
+            age = time.monotonic() - self._t_mono
+            if age > max_age_s:
+                return None
+            return self._vz_ned
 
     def stop(self):
         self._stop.set()
@@ -223,7 +244,12 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
                     eps: float = 0.15, iters: int = 80,
                     min_inlier_ratio: float = 0.35, max_speed_mps: float = 25.0,
                     static_margin_frac: float = 0.12, static_margin_min: int = 3,
-                    cond_reject_threshold: float = 30.0, rng=None, force_2d: bool = False):
+                    cond_reject_threshold: float = 30.0, rng=None, force_2d: bool = False,
+                    # ── Static-hypothesis hardening (2026-09-18 forensics) ──
+                    airborne: bool = False,
+                    static_min_ratio: float = 0.70,
+                    static_min_points: int = 10,
+                    min_points_moving: int = 8):
     """
     Vectorized Doppler-RANSAC with a static-hypothesis margin requirement
     and a condition-number gate against near-planar geometry degeneracy.
@@ -275,13 +301,29 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
     mask_zero = res_zero < eps
     score_zero = int(mask_zero.sum())
 
-    # Low-count guard: with fewer than 8 points, 3-point minimal sampling
-    # overfits sensor noise (solving 3 unknowns from 3-7 points has little
-    # or no statistical redundancy). Only evaluate the static hypothesis (v=0).
-    # If static is supported, accept it; otherwise reject as a gap (valid=False).
-    # Never solve a moving triad on < 8 points.
-    if n < 8:
-        if (score_zero / n >= min_inlier_ratio) or score_zero >= 3:
+    # ── Static-hypothesis credibility gate (2026-09-18 forensics) ──
+    # Forensic analysis proved that 8-9 inliers with near-zero Doppler appear
+    # on 100% of zero-publishing frames in all five flights, at every altitude,
+    # speed and mount angle. These are airframe self-returns (landing gear,
+    # rotor hub, near-field leakage) — not ground. They give a permanently
+    # available 'static' hypothesis that wins the margin test whenever real
+    # ground returns thin out at altitude. The old threshold (score_zero/n >=
+    # 0.25 OR score_zero >= 3) let 3 self-return points out of 12 declare the
+    # vehicle parked mid-flight. The new gate requires near-unanimity.
+    static_credible = (
+        score_zero >= static_min_points and
+        (score_zero / n) >= static_min_ratio
+    )
+    if airborne:
+        # In free-flight a true static world is essentially impossible.
+        # Demand overwhelming evidence and prefer a declared gap (which
+        # lets the EKF coast on IMU) over a confident fabricated zero.
+        static_credible = static_credible and (score_zero / n) >= 0.85
+
+    if n < min_points_moving:
+        # Too few points for a well-conditioned 3-DOF solve. Do NOT publish
+        # a fabricated zero; report a gap instead.
+        if static_credible and not airborne:
             return mask_zero, True, 1.0
         return None
 
@@ -314,13 +356,12 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
             best_score, best_mask = score, mask
 
     margin = max(static_margin_min, int(math.ceil(static_margin_frac * n)))
-    static_ok = (n > 0) and (score_zero / n >= min_inlier_ratio)
 
     if best_mask is None or best_score <= score_zero + margin:
-        # Nothing beat static outright, or didn't beat it by enough margin
-        # to trust the more complex (3-parameter) explanation over it.
-        if static_ok:
-            return mask_zero, True, 1.0  # static accepted, cond. number moot
+        # Nothing beat static outright or by sufficient margin.
+        if static_credible:
+            return mask_zero, True, 1.0
+        # Prefer a gap over a fabricated zero (especially when airborne).
         return None
 
     if best_score / n < min_inlier_ratio:
@@ -336,7 +377,8 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
     return best_mask, False, cond
 
 
-def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0, force_2d: bool = False):
+def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0,
+                   force_2d: bool = False, vz_prior: float | None = None):
     """Eq. (9): v = (A^T W A)^-1 A^T W b using weighted least-squares with SVD conditioning."""
     A = -u_body[mask]
     if force_2d:
@@ -346,14 +388,17 @@ def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0, 
     sqrt_w = np.sqrt(w)
     A_w = A * sqrt_w[:, None]
     b_w = b * sqrt_w
+    # Inject vertical-velocity prior to break the Vx/Vz null direction
+    if not force_2d:
+        A_w, b_w = _augment_with_vz_prior(A_w, b_w, vz_prior)
     try:
-        v_res, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+        v_res, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-2)
         if force_2d:
             v_body = np.array([v_res[0], v_res[1], 0.0])
         else:
-            v_body = v_res
-        ATA = A_w.T @ A_w
-        cov_sub = np.linalg.pinv(ATA, rcond=1e-3)
+            v_body = v_res[:3]
+        ATA = A_w[:len(A_w) if vz_prior is None else -1].T @ A_w[:len(A_w) if vz_prior is None else -1]
+        cov_sub = np.linalg.pinv(ATA, rcond=1e-2)
         if force_2d:
             cov = np.zeros((3, 3))
             cov[:2, :2] = cov_sub
@@ -413,7 +458,8 @@ def polar_uncertainty_weights(xyz_radar: np.ndarray, u_body: np.ndarray, ranges:
 def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
                 sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps,
                 huber_delta_mps=0.20, max_iters=4, tol_mps=1e-3,
-                gross_outlier_mult=10.0, max_speed_mps=25.0, force_2d=False):
+                gross_outlier_mult=10.0, max_speed_mps=25.0, force_2d=False,
+                vz_prior: float | None = None):
     """Stage 4A: IRLS refinement of the RANSAC-seeded velocity."""
     v = np.asarray(v_seed, dtype=float).copy()
     max_iters = int(np.clip(max_iters, 3, 5))
@@ -449,14 +495,17 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
 
         A_w = A_full * sqrt_w[:, None]
         b_w = b_full * sqrt_w
+        # Inject Vz prior each IRLS iteration to keep the null direction pinned
+        if not force_2d:
+            A_w, b_w = _augment_with_vz_prior(A_w, b_w, vz_prior)
         try:
-            v_new_sub, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-3)
+            v_new_sub, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-2)
             if force_2d:
                 v_new = np.array([v_new_sub[0], v_new_sub[1], 0.0])
             else:
-                v_new = v_new_sub
+                v_new = v_new_sub[:3]
             ATA = A_w.T @ A_w
-            cov_sub = np.linalg.pinv(ATA, rcond=1e-3)
+            cov_sub = np.linalg.pinv(ATA, rcond=1e-2)
             if force_2d:
                 cov = np.zeros((3, 3))
                 cov[:2, :2] = cov_sub
@@ -477,6 +526,31 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
     if cov is None or np.linalg.norm(v) > max_speed_mps:
         return None, None
     return v, cov
+
+
+def _augment_with_vz_prior(A_w: np.ndarray, b_w: np.ndarray,
+                            vz_prior: float | None,
+                            sigma_vz: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
+    """Append a soft pseudo-measurement [0,0,1]·v = vz_prior with weight 1/sigma_vz.
+
+    WHY (2026-09-18 forensics §3.4 Layer 1):
+    At 25-45° tilt the Vx/Vz correlation ρ is -0.90 to -0.965.  The LOS cone
+    has a near-null direction n̂ = (sin θ, 0, −cos θ) along which the solver
+    slides freely — forensics showed spikes aligning with n̂ at |cos|=0.78-0.87
+    while GPS read 0.00 m/s.  A finite-weight Vz row breaks that freedom without
+    clamping Vz to a fixed value (which is what --force-2d did and which leaked
+    phantom Vx).  sigma_vz=0.5 matches Cube Orange baro+rangefinder accuracy.
+    Do NOT set it below 0.2 — that starts fighting genuine radar information.
+
+    Sign discipline: LOCAL_POSITION_NED.vz is NED +down.  FRD body frame also
+    uses +down for Z.  They agree — pass vz_ned straight through, do not negate.
+    """
+    if vz_prior is None or not math.isfinite(vz_prior):
+        return A_w, b_w
+    w = 1.0 / max(sigma_vz, 0.2)
+    A_w = np.vstack([A_w, np.array([[0.0, 0.0, 1.0]]) * w])
+    b_w = np.concatenate([b_w, [vz_prior * w]])
+    return A_w, b_w
 
 
 class DopplerRIO:
@@ -514,6 +588,18 @@ class DopplerRIO:
         self.sigma_el_rad = sigma_el_rad
         self.sigma_v_mps = sigma_v_mps
         self.imu_level_points = imu_level_points
+        # ── Forensics fixes (2026-09-18) ──
+        # R1 static hardening knobs (passed to doppler_ransac)
+        self.static_min_ratio   = 0.70
+        self.static_min_points  = 10
+        self.min_points_moving  = 8
+        # R2-L2 acceleration gate
+        self._v_prev: np.ndarray | None = None
+        self._t_prev: float | None = None
+        self.max_accel_mps2: float = 15.0   # ~1.5 g, generous for a multirotor
+        self._n_accel_rejected: int = 0
+        # R2-L3 posterior sigma gate
+        self.max_sigma_v_mps: float = 0.60  # reject if any axis uncertainty > this
 
     def process_frame(self, points_radar: np.ndarray, t_frame: float):
         """points_radar: (N,4) [x,y,z,v] in RADAR frame. Returns a result dict."""
@@ -567,12 +653,21 @@ class DopplerRIO:
         else:
             v_adjusted = v_meas
 
+        # Determine airborne state from the IMU listener (safe default: False)
+        is_airborne = False
+        if self.imu_listener is not None:
+            is_airborne = self.imu_listener.get_airborne()
+
         ransac_result = doppler_ransac(
             u_body, v_adjusted, self.eps, self.iters, self.min_inlier_ratio,
             static_margin_frac=self.static_margin_frac,
             static_margin_min=self.static_margin_min,
             cond_reject_threshold=self.cond_reject_threshold,
-            force_2d=self.force_2d)
+            force_2d=self.force_2d,
+            airborne=is_airborne,
+            static_min_ratio=self.static_min_ratio,
+            static_min_points=self.static_min_points,
+            min_points_moving=self.min_points_moving)
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
@@ -587,7 +682,14 @@ class DopplerRIO:
             # mostly work while removing the flyaway mechanism in flight.
             cov = np.eye(3) * 0.25
         else:
-            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask, force_2d=self.force_2d)
+            # ── R2-L1: Vz prior — break the Vx/Vz null-direction degeneracy ──
+            vz_prior = None
+            if self.imu_listener is not None:
+                vz_prior = self.imu_listener.get_vz_ned()
+
+            v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask,
+                                        force_2d=self.force_2d,
+                                        vz_prior=vz_prior)
             if v_seed is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
 
@@ -598,9 +700,44 @@ class DopplerRIO:
                 sigma_el_rad=self.sigma_el_rad, sigma_v_mps=self.sigma_v_mps,
                 huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
                 tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult,
-                force_2d=self.force_2d)
+                force_2d=self.force_2d,
+                vz_prior=vz_prior)
+
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+
+            # ── R2-L3: Posterior sigma gate ──
+            # The covariance already computed by irls_refit reflects how well
+            # the inlier set constrains each velocity axis. A large sigma on
+            # any axis means the null direction is still active.
+            sigma = np.sqrt(np.clip(np.diag(cov), 0.0, None))
+            if np.any(sigma > self.max_sigma_v_mps):
+                logging.info(
+                    f"RIO posterior sigma gate: sigma_v={sigma.round(3)} m/s "
+                    f"exceeds {self.max_sigma_v_mps} -- null direction active, rejecting frame")
+                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum()),
+                        'reason': 'sigma_gate'}
+            if v_body is None:
+                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+
+        # ── R2-L2: Acceleration gate ──
+        # A multirotor cannot change horizontal velocity by >1.5 g between
+        # 100 ms frames. Every spike in the 2026-09-18 dataset violated this
+        # by 5-20x. v_prev is only updated on ACCEPTED frames so the gate
+        # cannot 'walk along' behind a spike.
+        if self._v_prev is not None and self._t_prev is not None:
+            _dt = t_frame - self._t_prev
+            if 0.0 < _dt < 0.5:
+                implied_accel = float(np.linalg.norm(v_body - self._v_prev) / _dt)
+                if implied_accel > self.max_accel_mps2:
+                    self._n_accel_rejected += 1
+                    logging.warning(
+                        f"RIO accel gate: {implied_accel:.1f} m/s² > "
+                        f"{self.max_accel_mps2} m/s² limit "
+                        f"(v_prev={self._v_prev.round(2)} → v={v_body.round(2)}, "
+                        f"dt={_dt:.3f}s) — gap, not a fault")
+                    return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum()),
+                            'reason': 'accel_gate'}
 
         # Deadband: snap near-zero solves to exactly zero. Below this speed
         # you're inside the sensor/estimator noise floor, not measuring real
@@ -609,12 +746,18 @@ class DopplerRIO:
         if np.linalg.norm(v_body) < self.deadband_mps:
             v_body = np.zeros(3)
 
+        # Update kinematic state only on accepted frames
+        self._v_prev = v_body.copy()
+        self._t_prev = t_frame
+
         return {
             't': t_frame, 'valid': True,
             'v_body': v_body, 'cov_v': cov,
             'n_inliers': int(mask.sum()), 'n_total': int(keep.sum()),
             'is_static': is_static, 'cond': cond,
             'omega': omega,
+            'airborne': is_airborne,
+            'vz_prior_used': (vz_prior is not None) if not is_static else False,
         }
 
 
@@ -707,7 +850,17 @@ def run_udp_loop(args):
                   f"inliers={result['n_inliers']}/{result['n_total']}  {tag}{imu_tag}")
             if out_sock:
                 cov = result['cov_v']
-                pkt = FORWARD_PKT.pack(t_frame, vx, vy, vz, result['n_inliers'], cov[0,0], cov[1,1], cov[2,2])
+                flags = (
+                    (int(result.get('is_static', False)))
+                    | (int(result.get('airborne', False)) << 1)
+                    | (int(result.get('vz_prior_used', False)) << 2)
+                    | (int(rio._v_prev is not None) << 3)
+                )
+                pkt = FORWARD_PKT.pack(
+                    t_frame, vx, vy, vz, result['n_inliers'],
+                    cov[0,0], cov[1,1], cov[2,2],
+                    result['n_total'], flags,
+                    float(result.get('cond', 0.0)))
                 for dest_ip, dest_port in forward_dests:
                     out_sock.sendto(pkt, (dest_ip, dest_port))
         else:
@@ -849,10 +1002,30 @@ if __name__ == '__main__':
     p.add_argument('--force-2d', action='store_true',
                     help="DEBUG/NADIR-ONLY. Clamp Vz to zero in the velocity solve. "
                          "Refuses to combine with a tilt angle between 10 and 80 deg.")
-    p.add_argument('--max-speed-mps', type=float, default=25.0,
-                    help="Reject any velocity hypothesis above this. Must be well below "
-                         "the U300's +/-45 m/s unambiguous Doppler limit -- beyond it, "
-                         "velocity aliases and RIO reports a confident wrong answer.")
+    p.add_argument('--max-speed-mps', type=float, default=18.0,
+                    help="Reject any velocity hypothesis above this. Default lowered from "
+                         "25 to 18 m/s based on 2026-09-18 forensics: the U300 tracks "
+                         "correctly to 12 m/s; 18 gives margin while blocking the null-direction "
+                         "hallucinations that reached 17 m/s at GPS speed = 0.")
+    p.add_argument('--static-min-ratio', type=float, default=0.70,
+                    help="Fraction of returns that must read near-zero Doppler before the "
+                         "STATIC hypothesis is accepted. Forensics showed the old 0.25 let "
+                         "airframe self-returns (8-9 fixed points) publish v=0 for 50-74%% "
+                         "of every flight.")
+    p.add_argument('--static-min-points', type=int, default=10,
+                    help="Absolute minimum number of near-zero-Doppler returns required to "
+                         "accept the static hypothesis.")
+    p.add_argument('--min-points-moving', type=int, default=8,
+                    help="Minimum points to attempt a 3-DOF moving solve. Below this, "
+                         "report a gap rather than a fabricated zero.")
+    p.add_argument('--max-accel-mps2', type=float, default=15.0,
+                    help="Acceleration gate: reject any frame implying more than this "
+                         "m/s² change from the previous accepted frame. ~1.5 g is "
+                         "generous for a multirotor.")
+    p.add_argument('--max-sigma-v-mps', type=float, default=0.60,
+                    help="Posterior sigma gate: reject frame if any velocity axis "
+                         "uncertainty exceeds this value. High sigma means the null "
+                         "direction is active and the solve is unconstrained.")
     args = p.parse_args()
 
     self_test() if args.selftest else run_udp_loop(args)

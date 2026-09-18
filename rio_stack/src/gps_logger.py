@@ -52,10 +52,13 @@ except ImportError:
 
 
 # ─── Packet formats (must match doppler_rio.py / slam_node.py) ───────────────
-RIO_PKT = struct.Struct('<dfffIfff')   # t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes).
+# flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
+RIO_PKT = struct.Struct('<dfffIfffIBf')   # t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 POSE_PKT_HDR = struct.Struct('<dId') # t_slam, n_map_pts, fwd_range (20 bytes)
 # Followed by 128 bytes: 4×4 float64 row-major T_world
-IMU_PKT = struct.Struct('<dffffff')  # t_mono, roll, pitch, yaw, wx, wy, wz (32 bytes)
+# IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
+IMU_PKT = struct.Struct('<dffffffBf')  # 37 bytes
 ALT_PKT = struct.Struct('<f')        # altimeter range_m (4 bytes)
 
 
@@ -241,8 +244,12 @@ def run(args):
                         data, _ = rio_sock.recvfrom(128)
                         if len(data) < RIO_PKT.size:
                             continue
-                        t_frame, vx, vy, vz, inliers, _cxx, _cyy, _czz = RIO_PKT.unpack(data)
+                        t_frame, vx, vy, vz, inliers, _cxx, _cyy, _czz, n_total, flags, cond = RIO_PKT.unpack(data)
                         t_mono = time.monotonic()
+
+                        is_static = bool(flags & 1)
+                        airborne = bool((flags >> 1) & 1)
+                        vz_prior_used = bool((flags >> 2) & 1)
 
                         # Integrate distance for odometry comparison
                         v = np.array([vx, vy, vz])
@@ -261,6 +268,11 @@ def run(args):
                             'vy':       round(float(vy), 4),
                             'vz':       round(float(vz), 4),
                             'inliers':  int(inliers),
+                            'n_total':  int(n_total),
+                            'is_static': is_static,
+                            'airborne': airborne,
+                            'vz_prior': vz_prior_used,
+                            'cond':     round(float(cond), 2),
                         }
                         f.write(json.dumps(entry) + '\n')
                         n_rio += 1
@@ -299,7 +311,7 @@ def run(args):
                         data, _ = imu_sock.recvfrom(128)
                         if len(data) != IMU_PKT.size:
                             continue
-                        t_mono, roll, pitch, yaw, wx, wy, wz = IMU_PKT.unpack(data)
+                        t_mono, roll, pitch, yaw, wx, wy, wz, airborne_b, vz_ned = IMU_PKT.unpack(data)
                         
                         entry = {
                             'type': 'imu',

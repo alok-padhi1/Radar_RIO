@@ -44,9 +44,13 @@ import open3d as o3d
 from filters import FilterConfig, PersistenceTracker, preprocess_frame
 
 UDP_HEADER = struct.Struct('<I')
-RIO_PKT = struct.Struct('<dfffIfff')   # t, vx, vy, vz, n_inliers, cxx, cyy, czz -- matches doppler_rio.py FORWARD_PKT
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly.
+# t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond (46 bytes)
+# flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
+RIO_PKT = struct.Struct('<dfffIfffIBf')   # 46 bytes
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
-IMU_PKT = struct.Struct('<dffffff')  # 32 bytes
+# IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
+IMU_PKT = struct.Struct('<dffffffBf')  # 37 bytes
 # t, n_map_points, fwd_obstacle_range_m ; followed by 16 float64 (4x4 row-major T)
 POSE_PKT_HDR = struct.Struct('<dId')
 
@@ -678,14 +682,14 @@ def run(args):
             # Drain any pending RIO velocity updates (non-blocking, best-effort).
             if rio_receiver is not None:
                 for data in rio_receiver.drain():
-                    _t, vx, vy, vz, _n, _cxx, _cyy, _czz = RIO_PKT.unpack(data)
+                    _t, vx, vy, vz, _n, _cxx, _cyy, _czz, _ntot, _flags, _cond = RIO_PKT.unpack(data)
                     slam.update_velocity(np.array([vx, vy, vz]))
 
             # Drain any pending IMU updates (non-blocking, latest-value grab).
             if imu_receiver is not None:
                 for data in imu_receiver.drain():
                     if len(data) >= IMU_PKT.size:
-                        _t, _r, _p, _y, ox, oy, oz = IMU_PKT.unpack(data[:IMU_PKT.size])
+                        _t, _r, _p, _y, ox, oy, oz, _ab, _vz = IMU_PKT.unpack(data[:IMU_PKT.size])
                         latest_omega = np.array([ox, oy, oz])
                         latest_attitude = np.array([_r, _p, _y])
 
