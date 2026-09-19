@@ -689,6 +689,24 @@ class NavNode:
         flying = self.state in (NavState.HOLD, NavState.MISSION,
                                 NavState.OBSTACLE_STOP, NavState.RTH)
 
+        # RIO emergency hover: if high-rate velocity drops for 0.5s, we cannot
+        # safely navigate between SLAM keyframes. Command a safety hover.
+        rio_stale = float('inf')
+        if self.last_rio_local_time is not None:
+            rio_stale = time.monotonic() - self.last_rio_local_time
+            
+        if flying and rio_stale > 0.5:
+            # Override velocity without changing state machine, so we can seamlessly
+            # resume RTH/Mission if radar comes back online before pose goes fully stale.
+            self.ap.send_velocity_setpoint(0, 0, 0)
+            return
+
+        if flying and stale > self.cfg.pose_stale_timeout_s and stale <= self.cfg.pose_lost_rth_timeout_s:
+            # Soft version: don't RTL yet, just freeze in place on the last
+            # known-good position rather than continuing to command motion
+            self.ap.send_velocity_setpoint(0, 0, 0)
+            return
+
         if flying and not ekf_ok:
             print("[nav_node] EKF UNHEALTHY -- descending in place on altimeter")
             self._enter(NavState.FAILSAFE_LAND)
@@ -776,23 +794,6 @@ class NavNode:
             return
 
         if self.state == NavState.LANDING or self.state == NavState.DISARMED:
-            return
-
-        if stale > self.cfg.pose_stale_timeout_s:
-            # Soft version: don't RTL yet, just freeze in place on the last
-            # known-good position rather than continuing to command motion
-            # off a stale/dead-reckoned estimate.
-            self.ap.send_velocity_setpoint(0, 0, 0)
-            return
-
-        # RIO emergency hover: if high-rate velocity drops for 0.5s, we cannot
-        # safely navigate between SLAM keyframes. Command a safety hover.
-        rio_stale = float('inf')
-        if self.last_rio_local_time is not None:
-            rio_stale = time.monotonic() - self.last_rio_local_time
-            
-        if rio_stale > 0.5:
-            self.ap.send_velocity_setpoint(0, 0, 0)
             return
 
         pos = self.tracker.pose.position_nav
