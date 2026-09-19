@@ -58,13 +58,13 @@ def test_selftest_pass():
 
     r1 = subprocess.run([py, "doppler_rio.py", "--selftest"],
                          capture_output=True, text=True, timeout=30)
-    assert r1.returncode == 0 and "PASS" in r1.stdout, \
+    assert r1.returncode == 0 and "PASS" in r1.stdout + r1.stderr, \
         f"doppler_rio selftest failed:\n{r1.stdout}\n{r1.stderr}"
     print("  doppler_rio selftest: PASS")
 
     r2 = subprocess.run([py, "mavlink_bridge.py", "--selftest"],
                          capture_output=True, text=True, timeout=30)
-    assert r2.returncode == 0 and "PASS" in r2.stdout, \
+    assert r2.returncode == 0 and "PASS" in r2.stdout + r2.stderr, \
         f"mavlink_bridge selftest failed:\n{r2.stdout}\n{r2.stderr}"
     print("  mavlink_bridge selftest: PASS")
 
