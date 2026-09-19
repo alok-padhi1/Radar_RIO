@@ -48,7 +48,7 @@ except ImportError:
     sys.exit(1)
 
 # Wire format: matches the listener in doppler_rio.py and slam_node.py
-IMU_PKT = struct.Struct('<dffffffBf')  # 37 bytes: +airborne (uint8) +vz_ned (float32)
+IMU_PKT = struct.Struct('<dffffffBfdd')  # 53 bytes: t, r,p,y, wx,wy,wz, airborne, vz_ned, t_vz, t_airborne
 
 
 def main():
@@ -113,12 +113,10 @@ def main():
     gps_count = 0
     t_last_stats = time.monotonic()
     # State for the extended IMU packet fields.
-    # vz_ned: FC EKF vertical velocity in NED frame (+down). Initialised to
-    # 0.0 (safe: on the ground the drone is not climbing). Updated from
-    # LOCAL_POSITION_NED at the FC's native rate (usually 10-50 Hz).
-    # airborne: 1 = IN_AIR (EXTENDED_SYS_STATE landed_state==2), 0 otherwise.
     _vz_ned: float = 0.0
     _airborne: int = 0
+    _t_vz_ned: float = 0.0
+    _t_airborne: float = 0.0
 
     try:
         while True:
@@ -127,6 +125,7 @@ def main():
                 continue
                 
             msg_type = msg.get_type()
+            now_mono = time.monotonic()
             
             if msg_type in ('GLOBAL_POSITION_INT', 'GPS_RAW_INT'):
                 try:
@@ -137,19 +136,17 @@ def main():
                     pass
 
             elif msg_type == 'LOCAL_POSITION_NED':
-                # FC EKF vertical velocity. NED convention: vz > 0 means
-                # descending. FRD body frame (used by doppler_rio) shares the
-                # same sign, so we pass it through without negation.
                 _vz_ned = float(msg.vz)
+                _t_vz_ned = now_mono
 
             elif msg_type == 'EXTENDED_SYS_STATE':
-                # landed_state: 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING
-                # Treat anything other than confirmed IN_AIR as not-airborne so
-                # the static hypothesis is only hardened during true free-flight.
-                _airborne = 1 if getattr(msg, 'landed_state', 1) == 2 else 0
+                # BUG-4 Fix: landed_state 1=ON_GROUND. Treat anything else as IN_AIR
+                # so we don't accidentally enable static hypothesis during TAKEOFF/LANDING.
+                _airborne = 1 if getattr(msg, 'landed_state', 1) != 1 else 0
+                _t_airborne = now_mono
                     
             elif msg_type == 'ATTITUDE':
-                t_mono = time.monotonic()
+                t_mono = now_mono
                 msg_count += 1
     
                 roll = msg.roll
@@ -170,6 +167,8 @@ def main():
                     omega_z,
                     _airborne,
                     _vz_ned,
+                    _t_vz_ned,
+                    _t_airborne,
                 )
                 for port in dest_ports:
                     try:

@@ -259,8 +259,11 @@ class RadarSLAM:
 
         self.T_world = np.eye(4)          # current pose, world <- body
         self.map_cloud = o3d.geometry.PointCloud()
+        self.global_map_cloud = o3d.geometry.PointCloud()
+        self.recent_keyframes = []
         self.pose_chain = [self.T_world.copy()]
         self.last_v_body = None           # most recent RIO estimate, for deskew + Doppler prior
+        self.last_v_body_time = None
         self.last_kf_t = None
         self.last_attitude = None         # (3,) np.ndarray: [roll, pitch, yaw] from IMU (rad)
 
@@ -273,8 +276,9 @@ class RadarSLAM:
         self.persistence_tracker = PersistenceTracker(self.filter_cfg)
         self.initial_yaw_imu = None
 
-    def update_velocity(self, v_body: np.ndarray):
+    def update_velocity(self, v_body: np.ndarray, t_mono: float | None = None):
         self.last_v_body = v_body
+        self.last_v_body_time = time.monotonic() if t_mono is None else t_mono
 
     def update_attitude(self, attitude: np.ndarray):
         """Store the latest IMU fused attitude [roll, pitch, yaw] in radians."""
@@ -493,6 +497,8 @@ class RadarSLAM:
         # Frame-to-Map requires the absolute predicted pose as the initial guess.
         T_pred = self.T_world.copy()
         if self.last_v_body is not None and len(self.pose_chain) >= 1:
+            if self.last_v_body_time is not None and time.monotonic() - self.last_v_body_time > 0.3:
+                self.last_v_body = np.zeros(3)
             # Shift translation by RIO velocity (velocity is in local body frame, 
             # so we rotate it into the world frame before adding)
             t_shift = self.T_world[:3, :3] @ (self.last_v_body * dt)
@@ -572,19 +578,31 @@ class RadarSLAM:
                          max_map_points: int = 200_000):
         pcd_world = o3d.geometry.PointCloud(pcd_body)
         pcd_world.transform(T)
-        self.map_cloud += pcd_world
+        
+        # Local Sliding Window (last 10 point clouds) for fast GICP registration
+        self.recent_keyframes.append(pcd_world)
+        if len(self.recent_keyframes) > 10:
+            self.recent_keyframes.pop(0)
+            
+        self.map_cloud = o3d.geometry.PointCloud()
+        for kf in self.recent_keyframes:
+            self.map_cloud += kf
         self.map_cloud = self.map_cloud.voxel_down_sample(self.voxel_size)
-        if len(self.map_cloud.points) > max_map_points:
+        
+        # Global map for saving and visualization
+        self.global_map_cloud += pcd_world
+        self.global_map_cloud = self.global_map_cloud.voxel_down_sample(self.voxel_size)
+        if len(self.global_map_cloud.points) > max_map_points:
             idx = np.random.default_rng().choice(
-                len(self.map_cloud.points), max_map_points, replace=False)
-            self.map_cloud = self.map_cloud.select_by_index(idx)
+                len(self.global_map_cloud.points), max_map_points, replace=False)
+            self.global_map_cloud = self.global_map_cloud.select_by_index(idx)
 
 
 # ---------------------------------------------------------------- runtime wiring
 
 def _save_map(slam, save_path):
     """Save the accumulated SLAM map as a .pcd file."""
-    if save_path and len(slam.map_cloud.points) > 0:
+    if save_path and len(slam.global_map_cloud.points) > 0:
         import datetime
         # If user gave a directory or no extension, auto-name with timestamp
         if os.path.isdir(save_path) or not save_path.endswith('.pcd'):
@@ -592,8 +610,8 @@ def _save_map(slam, save_path):
             ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             save_path = os.path.join(dirname, f'radar_map_{ts}.pcd')
         os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
-        o3d.io.write_point_cloud(save_path, slam.map_cloud)
-        n = len(slam.map_cloud.points)
+        o3d.io.write_point_cloud(save_path, slam.global_map_cloud)
+        n = len(slam.global_map_cloud.points)
         print(f"\n[slam_node] ✅ Map saved: {save_path} ({n} points)")
     elif save_path:
         print(f"\n[slam_node] ⚠️  No map points to save.")
@@ -683,7 +701,7 @@ def run(args):
             if rio_receiver is not None:
                 for data in rio_receiver.drain():
                     _t, vx, vy, vz, _n, _cxx, _cyy, _czz, _ntot, _flags, _cond = RIO_PKT.unpack(data)
-                    slam.update_velocity(np.array([vx, vy, vz]))
+                    slam.update_velocity(np.array([vx, vy, vz]), t_mono=_t)
 
             # Drain any pending IMU updates (non-blocking, latest-value grab).
             if imu_receiver is not None:
@@ -746,7 +764,7 @@ def run(args):
 
             result = slam.process_keyframe(merged_xyz, merged_v, t, omega=omega_leveled, agl_m=latest_agl)
             if result['valid']:
-                n_map = len(slam.map_cloud.points)
+                n_map = len(slam.global_map_cloud.points)
                 fwd = result.get('fwd_range', float('inf'))
                 print(f"[slam_node] keyframe OK  raw={result.get('n_raw')} -> "
                       f"final={result.get('n_final')}  map_pts={n_map} "
@@ -776,7 +794,7 @@ def run(args):
         print("\n[slam_node] Interrupted by user.")
     finally:
         n_poses = len(slam.pose_chain)
-        n_map = len(slam.map_cloud.points)
+        n_map = len(slam.global_map_cloud.points)
         logging.info(f"Session summary: {n_poses} keyframes, {n_map} map points")
         if hasattr(args, 'save_pcd') and args.save_pcd:
             _save_map(slam, args.save_pcd)

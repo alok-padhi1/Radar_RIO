@@ -42,8 +42,8 @@ UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 # Extended packet: t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
 FORWARD_PKT = struct.Struct('<dfffIfffIBf')  # 46 bytes
-# IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
-IMU_PKT = struct.Struct('<dffffffBf')   # 37 bytes
+# IMU packet from imu_bridge.py (53 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned, t_vz, t_air
+IMU_PKT = struct.Struct('<dffffffBfdd')   # 53 bytes
 
 
 class IMUListener:
@@ -61,6 +61,8 @@ class IMUListener:
         self._t_mono = 0.0
         self._airborne = 0      # 1 = FC confirmed IN_AIR
         self._vz_ned = 0.0      # FC EKF vertical velocity, NED +down (m/s)
+        self._t_vz_ned_fc = 0.0
+        self._t_airborne_fc = 0.0
         self._thread = None
         self._stop = threading.Event()
 
@@ -77,13 +79,15 @@ class IMUListener:
             try:
                 data, _ = sock.recvfrom(64)
                 if len(data) >= IMU_PKT.size:
-                    t_mono, roll, pitch, yaw, ox, oy, oz, airborne, vz_ned = IMU_PKT.unpack(data[:IMU_PKT.size])
+                    t_mono, roll, pitch, yaw, ox, oy, oz, airborne, vz_ned, t_vz, t_air = IMU_PKT.unpack(data[:IMU_PKT.size])
                     with self._lock:
                         self._omega = np.array([ox, oy, oz])
                         self._attitude = np.array([roll, pitch, yaw])
                         self._t_mono = t_mono
                         self._airborne = int(airborne)
                         self._vz_ned = float(vz_ned)
+                        self._t_vz_ned_fc = t_vz
+                        self._t_airborne_fc = t_air
             except socket.timeout:
                 continue
             except Exception:
@@ -113,6 +117,8 @@ class IMUListener:
     def get_airborne(self) -> bool:
         """Returns True if the FC reports the vehicle is in the air."""
         with self._lock:
+            if time.monotonic() - self._t_airborne_fc > 2.0:
+                return True # Safe default if unknown
             return bool(self._airborne)
 
     def get_vz_ned(self, max_age_s: float = 0.3) -> float | None:
@@ -120,7 +126,7 @@ class IMUListener:
         sigma_vz on a Cube Orange with healthy baro is ~0.3 m/s; use 0.5 m/s
         as the soft-prior weight to avoid fighting genuine radar information."""
         with self._lock:
-            age = time.monotonic() - self._t_mono
+            age = time.monotonic() - self._t_vz_ned_fc
             if age > max_age_s:
                 return None
             return self._vz_ned
@@ -397,7 +403,7 @@ def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0,
             v_body = np.array([v_res[0], v_res[1], 0.0])
         else:
             v_body = v_res[:3]
-        ATA = A_w[:len(A_w) if vz_prior is None else -1].T @ A_w[:len(A_w) if vz_prior is None else -1]
+        ATA = A_w.T @ A_w
         cov_sub = np.linalg.pinv(ATA, rcond=1e-2)
         if force_2d:
             cov = np.zeros((3, 3))
@@ -513,6 +519,7 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
             else:
                 cov = cov_sub
         except (np.linalg.LinAlgError, ValueError):
+            cov = None
             break
 
         if np.linalg.norm(v_new) > max_speed_mps:
@@ -564,9 +571,10 @@ class DopplerRIO:
                  sigma_r_m=0.10, sigma_az_rad=math.radians(2.0),
                  sigma_el_rad=math.radians(4.0), sigma_v_mps=0.05,
                  imu_level_points: bool = False,
-                 force_2d: bool = False):
+                 force_2d: bool = False, max_speed_mps: float = 25.0):
         self.mount = mount
         self.force_2d = force_2d
+        self.max_speed_mps = max_speed_mps
         if force_2d:
             logging.warning("force_2d ENABLED: Vz is being clamped to zero. "
                             "This is only valid for a NADIR mount. At any tilt "
@@ -596,6 +604,7 @@ class DopplerRIO:
         # R2-L2 acceleration gate
         self._v_prev: np.ndarray | None = None
         self._t_prev: float | None = None
+        self._yaw_prev: float | None = None
         self.max_accel_mps2: float = 15.0   # ~1.5 g, generous for a multirotor
         self._n_accel_rejected: int = 0
         # R2-L3 posterior sigma gate
@@ -665,6 +674,7 @@ class DopplerRIO:
             cond_reject_threshold=self.cond_reject_threshold,
             force_2d=self.force_2d,
             airborne=is_airborne,
+            max_speed_mps=self.max_speed_mps,
             static_min_ratio=self.static_min_ratio,
             static_min_points=self.static_min_points,
             min_points_moving=self.min_points_moving)
@@ -689,6 +699,7 @@ class DopplerRIO:
 
             v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask,
                                         force_2d=self.force_2d,
+                                        max_speed_mps=self.max_speed_mps,
                                         vz_prior=vz_prior)
             if v_seed is None:
                 return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
@@ -700,7 +711,7 @@ class DopplerRIO:
                 sigma_el_rad=self.sigma_el_rad, sigma_v_mps=self.sigma_v_mps,
                 huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
                 tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult,
-                force_2d=self.force_2d,
+                force_2d=self.force_2d, max_speed_mps=self.max_speed_mps,
                 vz_prior=vz_prior)
 
             if v_body is None:
@@ -725,10 +736,19 @@ class DopplerRIO:
         # 100 ms frames. Every spike in the 2026-09-18 dataset violated this
         # by 5-20x. v_prev is only updated on ACCEPTED frames so the gate
         # cannot 'walk along' behind a spike.
-        if self._v_prev is not None and self._t_prev is not None:
+        if self._v_prev is not None and self._t_prev is not None and self._yaw_prev is not None:
             _dt = t_frame - self._t_prev
             if 0.0 < _dt < 0.5:
-                implied_accel = float(np.linalg.norm(v_body - self._v_prev) / _dt)
+                # Rotate velocities to NED for comparison to remove yaw-turn artifacts
+                curr_yaw = attitude[2] if attitude is not None else 0.0
+                c1, s1 = math.cos(self._yaw_prev), math.sin(self._yaw_prev)
+                R1 = np.array([[c1, -s1, 0], [s1, c1, 0], [0, 0, 1]])
+                c2, s2 = math.cos(curr_yaw), math.sin(curr_yaw)
+                R2 = np.array([[c2, -s2, 0], [s2, c2, 0], [0, 0, 1]])
+                
+                v1_ned = R1 @ self._v_prev
+                v2_ned = R2 @ v_body
+                implied_accel = float(np.linalg.norm(v2_ned - v1_ned) / _dt)
                 if implied_accel > self.max_accel_mps2:
                     self._n_accel_rejected += 1
                     logging.warning(
@@ -749,6 +769,7 @@ class DopplerRIO:
         # Update kinematic state only on accepted frames
         self._v_prev = v_body.copy()
         self._t_prev = t_frame
+        self._yaw_prev = attitude[2] if attitude is not None else 0.0
 
         return {
             't': t_frame, 'valid': True,
@@ -816,7 +837,8 @@ def run_udp_loop(args):
                       sigma_az_rad=math.radians(args.sigma_az_deg),
                       sigma_el_rad=math.radians(args.sigma_el_deg),
                       sigma_v_mps=args.sigma_v,
-                      imu_level_points=getattr(args, 'imu_level_points', False))
+                      imu_level_points=getattr(args, 'imu_level_points', False),
+                      max_speed_mps=args.max_speed_mps)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.listen_ip, args.listen_port))
@@ -978,7 +1000,7 @@ if __name__ == '__main__':
                     help="a moving hypothesis must beat the static (v=0) hypothesis "
                          "by at least this fraction of points, on top of --static-margin-min")
     p.add_argument('--static-margin-min', type=int, default=3)
-    p.add_argument('--cond-reject-threshold', type=float, default=12.0,
+    p.add_argument('--cond-reject-threshold', type=float, default=50.0,
                     help="reject a moving-hypothesis frame if its inlier LOS matrix "
                          "condition number exceeds this (near-planar/degenerate geometry)")
     p.add_argument('--deadband', type=float, default=0.05,

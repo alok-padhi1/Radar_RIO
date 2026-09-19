@@ -205,12 +205,9 @@ def compute_position_errors(slam: list[dict], gps: list[dict], alt: list[dict] =
         rel_sp_z = -(slam_e['pos'][2] - z_offset_slam)
 
         t = slam_e['t_mono']
-        if alt_lookup and t in alt_lookup:
-            # Altimeter range is directly altitude (Up)
-            rel_gp_z = alt_lookup[t] - z_offset_alt
-        else:
-            # GPS ENU Z is Up
-            rel_gp_z = gps_e['enu'][2] - z_offset_gps
+        # Always use GPS ENU Z for absolute SLAM error comparison.
+        # Do not use altimeter AGL because SLAM tracks absolute world MSL.
+        rel_gp_z = gps_e['enu'][2] - z_offset_gps
 
         err_xy = float(np.linalg.norm(sp_xy - gp_xy))
         err_z  = abs(rel_sp_z - rel_gp_z)
@@ -399,6 +396,21 @@ def print_report(gps, rio, slam, imu, alt, meta, log_path) -> bool:
         print(f"  Max speed:      {max(speeds):.3f} m/s")
         print(f"  Mean inliers:   {np.mean(inliers):.1f}")
         print(f"  Min inliers:    {min(inliers)}")
+        
+        # New RIO Gate Statistics section
+        conds = [r.get('cond', 0.0) for r in rio if not r.get('is_static', False)]
+        statics = sum(1 for r in rio if r.get('is_static', False))
+        airbornes = sum(1 for r in rio if r.get('airborne', False))
+        vz_priors = sum(1 for r in rio if r.get('vz_prior', False))
+        n_totals = [r.get('n_total', r['inliers']) for r in rio]
+        
+        print(f"\n🚧 RIO GATE STATISTICS")
+        print(f"  Static frames:  {statics} ({statics/len(rio):.1%})")
+        print(f"  Airborne frames:{airbornes} ({airbornes/len(rio):.1%})")
+        print(f"  Vz prior used:  {vz_priors} ({vz_priors/len(rio):.1%})")
+        if conds:
+            print(f"  Max condition:  {max(conds):.1f}")
+        print(f"  Mean total pts: {np.mean(n_totals):.1f}")
 
     # ── SLAM Statistics ──
     if slam:
