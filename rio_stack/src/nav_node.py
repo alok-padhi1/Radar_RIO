@@ -577,6 +577,7 @@ class NavNode:
 
         self._t_state_enter = time.monotonic()
         self._rtl_sent = False
+        self.last_rio_local_time = None
 
     # -- ingest --
 
@@ -607,6 +608,7 @@ class NavNode:
                     continue
                 t, vx, vy, vz, _n, _cxx, _cyy, _czz, _ntot, _flags, _cond = RIO_PKT.unpack(data[:RIO_PKT.size])
                 self.tracker.on_rio_velocity(t, np.array([vx, vy, vz]), att)
+                self.last_rio_local_time = time.monotonic()
         except BlockingIOError:
             pass
         except struct.error:
@@ -780,6 +782,16 @@ class NavNode:
             # Soft version: don't RTL yet, just freeze in place on the last
             # known-good position rather than continuing to command motion
             # off a stale/dead-reckoned estimate.
+            self.ap.send_velocity_setpoint(0, 0, 0)
+            return
+
+        # RIO emergency hover: if high-rate velocity drops for 0.5s, we cannot
+        # safely navigate between SLAM keyframes. Command a safety hover.
+        rio_stale = float('inf')
+        if self.last_rio_local_time is not None:
+            rio_stale = time.monotonic() - self.last_rio_local_time
+            
+        if rio_stale > 0.5:
             self.ap.send_velocity_setpoint(0, 0, 0)
             return
 
