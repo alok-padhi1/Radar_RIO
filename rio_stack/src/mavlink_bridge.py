@@ -43,10 +43,12 @@ import argparse
 import socket
 import struct
 import time
+import numpy as np
 from pymavlink import mavutil
 
+from nav_node import body_to_nav_rotation
 
-# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes)
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes).
 RIO_PKT = struct.Struct('<dfffIfffIBf')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 ALT_PKT = struct.Struct('<f')      # range_m -- from your altimeter radar's parser
 
@@ -83,9 +85,12 @@ def send_odometry_px4(conn, t_usec, vx, vy, vz, cov_v_diag=(0.05, 0.05, 0.05)):
     )
 
 
-def send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=(0.05, 0.05, 0.05)):
-    cov = [cov_v_diag[0], 0, 0, 0, cov_v_diag[1], 0, 0, 0, cov_v_diag[2]]
-    conn.mav.vision_speed_estimate_send(t_usec, vx, vy, vz, cov, reset_counter=0)
+def send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=None, cov_9=None):
+    if cov_9 is None:
+        if cov_v_diag is None:
+            cov_v_diag = (0.05, 0.05, 0.05)
+        cov_9 = [cov_v_diag[0], 0, 0, 0, cov_v_diag[1], 0, 0, 0, cov_v_diag[2]]
+    conn.mav.vision_speed_estimate_send(t_usec, vx, vy, vz, cov_9, reset_counter=0)
 
 
 def send_distance_sensor(conn, t_boot_ms, range_m, min_range_m=0.2, max_range_m=200.0):
@@ -119,14 +124,26 @@ def run(args):
     for s in socks:
         s.setblocking(False)
 
+    if args.autopilot == 'ardupilot':
+        print(f"[mavlink_bridge] requesting ATTITUDE stream (needed for ArduPilot frame rotation)")
+        conn.mav.request_data_stream_send(
+            conn.target_system, conn.target_component,
+            mavutil.mavlink.MAV_DATA_STREAM_EXTRA1, 50, 1)
+
     t0_wall = time.monotonic()
     t_offset_us = None
+    last_attitude = None
 
     while True:
-        # Opportunistically refresh SYSTEM_TIME mapping
-        st = conn.recv_match(type='SYSTEM_TIME', blocking=False)
-        if st is not None:
-            t_offset_us = st.time_boot_ms * 1000 - int(time.monotonic() * 1e6)
+        # Opportunistically drain buffered messages
+        while True:
+            msg = conn.recv_match(type=['SYSTEM_TIME', 'ATTITUDE'], blocking=False)
+            if msg is None:
+                break
+            if msg.get_type() == 'SYSTEM_TIME':
+                t_offset_us = msg.time_boot_ms * 1000 - int(time.monotonic() * 1e6)
+            elif msg.get_type() == 'ATTITUDE':
+                last_attitude = msg
 
         ready, _, _ = select.select(socks, [], [], 0.05)
         
@@ -141,7 +158,21 @@ def run(args):
             if args.autopilot == 'px4':
                 send_odometry_px4(conn, t_usec, vx, vy, vz, cov_v_diag=(cxx, cyy, czz))
             else:
-                send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=(cxx, cyy, czz))
+                if last_attitude is not None:
+                    # RIO outputs body-frame (FRD) velocity. ArduPilot VISION_SPEED_ESTIMATE
+                    # requires earth-frame (NED) velocity. Rotate it using the vehicle's attitude.
+                    R = body_to_nav_rotation(last_attitude.roll, last_attitude.pitch, last_attitude.yaw)
+                    v_ned = R @ np.array([vx, vy, vz])
+                    
+                    # Rotate the diagonal covariance into a full 3x3 NED covariance
+                    C_body = np.diag([cxx, cyy, czz])
+                    C_ned = R @ C_body @ R.T
+                    cov_9 = C_ned.flatten().tolist()
+                    
+                    send_vision_speed_ardupilot(conn, t_usec, v_ned[0], v_ned[1], v_ned[2], cov_9=cov_9)
+                else:
+                    # Cannot safely send without attitude to rotate it
+                    pass
 
         if alt_sock in ready:
             adata, _ = alt_sock.recvfrom(64)

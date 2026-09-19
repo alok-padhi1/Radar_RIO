@@ -22,7 +22,7 @@ real airframe. Minimum non-negotiable preconditions:
   - Local regulatory compliance for the flight (this script does not know
     or enforce airspace rules).
 
-Local navigation frame: right-handed ENU (x=East, y=North, z=Up), all
+Local navigation frame: NED (x=North, y=East, z=Down), all
 waypoints and the position estimate expressed relative to the pose the
 vehicle had when nav_node started (NOT true GPS coordinates -- there is no
 GPS in this loop by design). SLAM's T_world is body->world in whatever
@@ -44,7 +44,7 @@ from enum import Enum, auto
 import numpy as np
 from pymavlink import mavutil
 
-# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes).
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes).
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
 RIO_PKT = struct.Struct('<dfffIfffIBf')          # t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 POSE_PKT_HDR = struct.Struct('<dId')       # t, n_map_points, fwd_range ; + 16 float64 T

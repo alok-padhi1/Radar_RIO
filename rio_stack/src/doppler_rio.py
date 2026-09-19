@@ -41,7 +41,7 @@ import numpy as np
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 # Extended packet: t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
-FORWARD_PKT = struct.Struct('<dfffIfffIBf')  # 46 bytes
+FORWARD_PKT = struct.Struct('<dfffIfffIBf')  # 45 bytes
 # IMU packet from imu_bridge.py (53 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned, t_vz, t_air
 IMU_PKT = struct.Struct('<dffffffBfdd')   # 53 bytes
 
@@ -182,7 +182,7 @@ class TiltMount:
         self.P = np.array([
             [0.0,              1.0, 0.0],   # X_B0 =  Y_R   (forward)
             [self.lateral_sign, 0.0, 0.0],  # Y_B0 = ±X_R   (lateral/right)
-            [0.0,              0.0, -1.0],  # Z_B0 = -Z_R   (down = -elevation)
+            [0.0,              0.0, -self.lateral_sign],  # Z_B0 = -+Z_R   (down)
         ])
         # R_R^B(theta_tilt) = R_tilt @ P: apply the axis permutation first,
         # then the mechanical pitch-down tilt, exactly as Eq.(2) expects.
@@ -324,7 +324,7 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
         # In free-flight a true static world is essentially impossible.
         # Demand overwhelming evidence and prefer a declared gap (which
         # lets the EKF coast on IMU) over a confident fabricated zero.
-        static_credible = static_credible and (score_zero / n) >= 0.85
+        static_credible = False
 
     if n < min_points_moving:
         # Too few points for a well-conditioned 3-DOF solve. Do NOT publish
@@ -562,7 +562,7 @@ def _augment_with_vz_prior(A_w: np.ndarray, b_w: np.ndarray,
 
 class DopplerRIO:
     def __init__(self, mount: TiltMount, min_range=0.3, max_range=350.0,
-                 eps=0.15, iters=60, min_inlier_ratio=0.35,
+                 eps=0.40, iters=60, min_inlier_ratio=0.35,
                  static_margin_frac=0.12, static_margin_min=3,
                  cond_reject_threshold=30.0, deadband_mps=0.05,
                  imu_listener: IMUListener | None = None,
@@ -571,7 +571,10 @@ class DopplerRIO:
                  sigma_r_m=0.10, sigma_az_rad=math.radians(2.0),
                  sigma_el_rad=math.radians(4.0), sigma_v_mps=0.05,
                  imu_level_points: bool = False,
-                 force_2d: bool = False, max_speed_mps: float = 25.0):
+                 force_2d: bool = False, max_speed_mps: float = 25.0,
+                 static_min_ratio: float = 0.70, static_min_points: int = 10,
+                 min_points_moving: int = 8, max_accel_mps2: float = 15.0,
+                 max_sigma_v_mps: float = 0.60, leakage_radius_m: float = 0.35):
         self.mount = mount
         self.force_2d = force_2d
         self.max_speed_mps = max_speed_mps
@@ -581,6 +584,7 @@ class DopplerRIO:
                             "between 10 and 80 deg it injects large phantom Vx. "
                             "DO NOT FLY WITH THIS ON.")
         self.min_range, self.max_range = min_range, max_range
+        self.leakage_radius_m = leakage_radius_m
         self.eps, self.iters, self.min_inlier_ratio = eps, iters, min_inlier_ratio
         self.static_margin_frac = static_margin_frac
         self.static_margin_min = static_margin_min
@@ -598,17 +602,17 @@ class DopplerRIO:
         self.imu_level_points = imu_level_points
         # ── Forensics fixes (2026-09-18) ──
         # R1 static hardening knobs (passed to doppler_ransac)
-        self.static_min_ratio   = 0.70
-        self.static_min_points  = 10
-        self.min_points_moving  = 8
+        self.static_min_ratio   = static_min_ratio
+        self.static_min_points  = static_min_points
+        self.min_points_moving  = min_points_moving
         # R2-L2 acceleration gate
         self._v_prev: np.ndarray | None = None
         self._t_prev: float | None = None
         self._yaw_prev: float | None = None
-        self.max_accel_mps2: float = 15.0   # ~1.5 g, generous for a multirotor
+        self.max_accel_mps2: float = max_accel_mps2
         self._n_accel_rejected: int = 0
         # R2-L3 posterior sigma gate
-        self.max_sigma_v_mps: float = 0.60  # reject if any axis uncertainty > this
+        self.max_sigma_v_mps: float = max_sigma_v_mps
 
     def process_frame(self, points_radar: np.ndarray, t_frame: float):
         """points_radar: (N,4) [x,y,z,v] in RADAR frame. Returns a result dict."""
@@ -625,7 +629,7 @@ class DopplerRIO:
         v_meas = points_radar[:, 3]
         ranges = np.linalg.norm(xyz_b, axis=1)
 
-        keep = (ranges > self.min_range) & (ranges < self.max_range)
+        keep = (ranges > max(self.min_range, self.leakage_radius_m)) & (ranges < self.max_range)
         if keep.sum() < 3:
             return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
         xyz_b, v_meas, ranges = xyz_b[keep], v_meas[keep], ranges[keep]
@@ -838,7 +842,13 @@ def run_udp_loop(args):
                       sigma_el_rad=math.radians(args.sigma_el_deg),
                       sigma_v_mps=args.sigma_v,
                       imu_level_points=getattr(args, 'imu_level_points', False),
-                      max_speed_mps=args.max_speed_mps)
+                      max_speed_mps=args.max_speed_mps,
+                      static_min_ratio=args.static_min_ratio,
+                      static_min_points=args.static_min_points,
+                      min_points_moving=args.min_points_moving,
+                      max_accel_mps2=args.max_accel_mps2,
+                      max_sigma_v_mps=args.max_sigma_v_mps,
+                      leakage_radius_m=args.leakage_radius_m)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.listen_ip, args.listen_port))
@@ -878,9 +888,19 @@ def run_udp_loop(args):
                     | (int(result.get('vz_prior_used', False)) << 2)
                     | (int(rio._v_prev is not None) << 3)
                 )
+                
+                cxx, cyy, czz = cov[0,0], cov[1,1], cov[2,2]
+                if result.get('vz_prior_used', False):
+                    czz = 100.0  # Strip the prior from published covariance
+                    
+                max_sigma = math.sqrt(max(cxx, cyy, czz))
+                if max_sigma > rio.max_sigma_v_mps:
+                    print(f"t={t_frame:.3f}  RIO frame rejected (max_sigma={max_sigma:.2f} > {rio.max_sigma_v_mps})")
+                    continue
+                
                 pkt = FORWARD_PKT.pack(
                     t_frame, vx, vy, vz, result['n_inliers'],
-                    cov[0,0], cov[1,1], cov[2,2],
+                    cxx, cyy, czz,
                     result['n_total'], flags,
                     float(result.get('cond', 0.0)))
                 for dest_ip, dest_port in forward_dests:
@@ -965,6 +985,11 @@ def self_test():
 
 
 if __name__ == '__main__':
+    import sys
+    if '--selftest' in sys.argv:
+        self_test()
+        sys.exit(0)
+
     p = argparse.ArgumentParser()
     p.add_argument('--selftest', action='store_true')
     p.add_argument('--listen-ip', default='127.0.0.1')
@@ -992,7 +1017,9 @@ if __name__ == '__main__':
                          "Beyond ~1.5x the far-beam-edge ground range, returns are "
                          "multipath ghosts with near-horizontal LOS vectors that "
                          "corrupt the Vx/Vz split. See implementation_plan.md Sec 1.3.")
-    p.add_argument('--eps', type=float, default=0.20,
+    p.add_argument('--leakage-radius-m', type=float, default=0.35, dest='leakage_radius_m',
+                    help="Reject near-field returns inside this radius to prevent tracking self-reflections.")
+    p.add_argument('--eps', type=float, default=0.40,
                     help="m/s tolerance for Doppler consistency (matches filters.py doppler_eps_mps)")
     p.add_argument('--min-inlier-ratio', type=float, default=0.25,
                     help="minimum fraction of returns that must fit hypothesis")
@@ -1050,4 +1077,4 @@ if __name__ == '__main__':
                          "direction is active and the solve is unconstrained.")
     args = p.parse_args()
 
-    self_test() if args.selftest else run_udp_loop(args)
+    run_udp_loop(args)

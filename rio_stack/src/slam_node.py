@@ -44,13 +44,13 @@ import open3d as o3d
 from filters import FilterConfig, PersistenceTracker, preprocess_frame
 
 UDP_HEADER = struct.Struct('<I')
-# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly.
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes).
 # t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond (46 bytes)
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
 RIO_PKT = struct.Struct('<dfffIfffIBf')   # 46 bytes
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
 # IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
-IMU_PKT = struct.Struct('<dffffffBf')  # 37 bytes
+IMU_PKT = struct.Struct('<dffffffBfdd')  # 53 bytes
 # t, n_map_points, fwd_obstacle_range_m ; followed by 16 float64 (4x4 row-major T)
 POSE_PKT_HDR = struct.Struct('<dId')
 
@@ -284,35 +284,36 @@ class RadarSLAM:
         """Store the latest IMU fused attitude [roll, pitch, yaw] in radians."""
         self.last_attitude = attitude
 
-    def _gravity_correct(self, T: np.ndarray, agl_m: float | None = None) -> np.ndarray:
+    def _gravity_correct(self, T: np.ndarray, agl_m: float | None = None, level_attitude: bool = True) -> np.ndarray:
         """Clamp pitch and roll to 0. Since the incoming point clouds are now
         dynamically leveled by the IMU *before* GICP, the matched pose should
         be perfectly flat. This prevents numerical noise from accumulating into
         catastrophic Z-drift (observed: 191 m in 96 s).
         """
-        R_gicp = T[:3, :3]
-        # Levelling assumption check: if GICP has drifted more than ~10 deg off
-        # level, the yaw extraction below is no longer valid and something
-        # upstream (levelling, deskew, correspondence) has failed.
-        if abs(R_gicp[2, 0]) > 0.17:            # |sin(pitch)| > 10 deg
-            logging.warning(f"[slam] GICP pose is {math.degrees(math.asin(abs(R_gicp[2,0]))):.0f} "
-                             f"deg off level -- levelling or deskew is broken.")
-        yaw_gicp = math.atan2(R_gicp[1, 0], R_gicp[0, 0])
-
-        if self.trust_imu_yaw and self.last_attitude is not None:
-            yaw_gicp = self.last_attitude[2]
-
-        cy, sy = math.cos(yaw_gicp),  math.sin(yaw_gicp)
-
-        # Pure Yaw rotation matrix
-        R_corrected = np.array([
-            [ cy, -sy, 0.0],
-            [ sy,  cy, 0.0],
-            [0.0, 0.0, 1.0],
-        ])
-
         T_out = T.copy()
-        T_out[:3, :3] = R_corrected
+
+        if level_attitude:
+            R_gicp = T[:3, :3]
+            # Levelling assumption check: if GICP has drifted more than ~10 deg off
+            # level, the yaw extraction below is no longer valid and something
+            # upstream (levelling, deskew, correspondence) has failed.
+            if abs(R_gicp[2, 0]) > 0.17:            # |sin(pitch)| > 10 deg
+                logging.warning(f"[slam] GICP pose is {math.degrees(math.asin(abs(R_gicp[2,0]))):.0f} "
+                                 f"deg off level -- levelling or deskew is broken.")
+            yaw_gicp = math.atan2(R_gicp[1, 0], R_gicp[0, 0])
+
+            if self.trust_imu_yaw and self.last_attitude is not None:
+                yaw_gicp = self.last_attitude[2]
+
+            cy, sy = math.cos(yaw_gicp),  math.sin(yaw_gicp)
+
+            # Pure Yaw rotation matrix
+            R_corrected = np.array([
+                [ cy, -sy, 0.0],
+                [ sy,  cy, 0.0],
+                [0.0, 0.0, 1.0],
+            ])
+            T_out[:3, :3] = R_corrected
 
         # HARD Z CONSTRAINT. The rotation clamp alone does not bound Z (the
         # translation column was previously passed through untouched, despite
@@ -518,8 +519,11 @@ class RadarSLAM:
 
         # Inject IMU gravity into the initial guess so GICP starts searching
         # from a gravity-consistent orientation (prevents tilted local minima).
-        if self.imu_level_points and self.last_attitude is not None:
-            T_pred = self._gravity_correct(T_pred, agl_m=agl_m)
+        # Also, apply the absolute height constraint (AGL) independently.
+        T_pred = self._gravity_correct(
+            T_pred, agl_m=agl_m, 
+            level_attitude=(self.imu_level_points and self.last_attitude is not None)
+        )
 
         # -- Stage 4B: GICP always runs; degeneracy is now DISCOVERED from its
         #    own Hessian, not predicted in advance from point-cloud shape. --
@@ -560,8 +564,10 @@ class RadarSLAM:
 
         fitness, rmse = result.fitness, result.inlier_rmse
 
-        if self.imu_level_points and self.last_attitude is not None:
-            self.T_world = self._gravity_correct(self.T_world, agl_m=agl_m)
+        self.T_world = self._gravity_correct(
+            self.T_world, agl_m=agl_m, 
+            level_attitude=(self.imu_level_points and self.last_attitude is not None)
+        )
 
         self.pose_chain.append(self.T_world.copy())
         self._merge_into_map(source, self.T_world)
@@ -707,7 +713,7 @@ def run(args):
             if imu_receiver is not None:
                 for data in imu_receiver.drain():
                     if len(data) >= IMU_PKT.size:
-                        _t, _r, _p, _y, ox, oy, oz, _ab, _vz = IMU_PKT.unpack(data[:IMU_PKT.size])
+                        _t, _r, _p, _y, ox, oy, oz, _ab, _vz, _t_vz, _t_ab = IMU_PKT.unpack(data[:IMU_PKT.size])
                         latest_omega = np.array([ox, oy, oz])
                         latest_attitude = np.array([_r, _p, _y])
 
@@ -847,7 +853,7 @@ def main():
     p.add_argument('--leakage-radius', type=float, default=0.35, help="meters, TX/RX near-field gate")
     p.add_argument('--min-range', type=float, default=0.3, help="meters")
     p.add_argument('--max-range', type=float, default=350.0, help="meters")
-    p.add_argument('--doppler-eps', type=float, default=0.20,
+    p.add_argument('--doppler-eps', type=float, default=0.40,
                     help="m/s tolerance for static-world Doppler consistency; keep in sync with doppler_rio.py's --eps")
     p.add_argument('--persistence-radius', type=float, default=1.0, help="meters")
     p.add_argument('--persistence-window', type=int, default=4, help="frames")

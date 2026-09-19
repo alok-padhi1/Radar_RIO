@@ -128,7 +128,8 @@ def build_children(args) -> list[Child]:
                        "--sigma-r", str(args.sigma_r),
                        "--sigma-az-deg", str(args.sigma_az_deg),
                        "--sigma-el-deg", str(args.sigma_el_deg),
-                       "--sigma-v", str(args.sigma_v)]
+                       "--sigma-v", str(args.sigma_v),
+                       "--max-range", str(args.max_range)]
                        + (["--imu-port", "5020"] if args.imu_port else [])
                        + (["--imu-level-points"] if args.imu_level_points else ["--no-imu-level-points"]),
               critical=True, start_delay_s=1.0),
@@ -234,15 +235,16 @@ def main():
     # Defaults here match production/flight scale -- override for a close-range
     # bench setup, e.g.: --voxel-size 0.10 --max-corr-dist 0.5
     # --min-correspondences 6 --persistence-radius 0.15 --deadband 0.05
-    p.add_argument('--voxel-size', type=float, default=0.10)
-    p.add_argument('--max-corr-dist', type=float, default=2.0)
-    p.add_argument('--min-correspondences', type=int, default=4)
-    p.add_argument('--persistence-radius', type=float, default=0.50)
-    p.add_argument('--persistence-min-hits', type=int, default=1)
+    p.add_argument('--max-range', type=float, default=150.0)
+    p.add_argument('--voxel-size', type=float, default=1.50)
+    p.add_argument('--max-corr-dist', type=float, default=6.0)
+    p.add_argument('--min-correspondences', type=int, default=15)
+    p.add_argument('--persistence-radius', type=float, default=1.0)
+    p.add_argument('--persistence-min-hits', type=int, default=2)
     p.add_argument('--window-s', type=float, default=0.5)
     p.add_argument('--eps', type=float, default=0.40, help="doppler_rio.py Doppler tolerance m/s")
     p.add_argument('--min-inlier-ratio', type=float, default=0.25, help="doppler_rio.py minimum inlier ratio")
-    p.add_argument('--cond-reject-threshold', type=float, default=12.0, help="doppler_rio.py condition number reject threshold")
+    p.add_argument('--cond-reject-threshold', type=float, default=30.0, help="doppler_rio.py condition number reject threshold")
     p.add_argument('--deadband', type=float, default=0.05, help="doppler_rio.py m/s deadband")
     p.add_argument('--platform', choices=['px4', 'ardupilot'], default='px4')
     p.add_argument('--mavlink-dest', default='udp:127.0.0.1:14540')

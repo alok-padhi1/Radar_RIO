@@ -52,13 +52,13 @@ except ImportError:
 
 
 # ─── Packet formats (must match doppler_rio.py / slam_node.py) ───────────────
-# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes).
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes).
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
 RIO_PKT = struct.Struct('<dfffIfffIBf')   # t_frame, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 POSE_PKT_HDR = struct.Struct('<dId') # t_slam, n_map_pts, fwd_range (20 bytes)
 # Followed by 128 bytes: 4×4 float64 row-major T_world
-# IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
-IMU_PKT = struct.Struct('<dffffffBf')  # 37 bytes
+# IMU packet from imu_bridge.py (53 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned, t_vz, t_airborne
+IMU_PKT = struct.Struct('<dffffffBfdd')  # 53 bytes
 ALT_PKT = struct.Struct('<f')        # altimeter range_m (4 bytes)
 
 
@@ -77,7 +77,7 @@ def lla_to_enu(lat, lon, alt, lat0, lon0, alt0):
     d_lat = lat - lat0
     d_lon = lon - lon0
     east  = d_lon * math.cos(math.radians(lat0)) * 111_320.0
-    north = d_lat * 110_540.0
+    north = d_lat * 110_852.0
     up    = alt - alt0
     return east, north, up
 
@@ -311,7 +311,7 @@ def run(args):
                         data, _ = imu_sock.recvfrom(128)
                         if len(data) != IMU_PKT.size:
                             continue
-                        t_mono, roll, pitch, yaw, wx, wy, wz, airborne_b, vz_ned = IMU_PKT.unpack(data)
+                        t_mono, roll, pitch, yaw, wx, wy, wz, airborne_b, vz_ned, t_vz, t_airborne = IMU_PKT.unpack(data)
                         
                         entry = {
                             'type': 'imu',

@@ -37,7 +37,7 @@ import numpy as np
 import open3d as o3d
 
 UDP_HEADER = struct.Struct('<I')
-# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (46 bytes)
+# Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes)
 RIO_PKT = struct.Struct('<dfffIfffIBf')
 POSE_PKT_HDR = struct.Struct('<dId')  # t, n_map_points, fwd_obstacle_range ; + 16xfloat64
 
