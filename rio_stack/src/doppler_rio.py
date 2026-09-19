@@ -256,7 +256,8 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
                     airborne: bool = False,
                     static_min_ratio: float = 0.70,
                     static_min_points: int = 10,
-                    min_points_moving: int = 8):
+                    min_points_moving: int = 8,
+                    vz_prior: float | None = None):
     """
     Vectorized Doppler-RANSAC with a static-hypothesis margin requirement
     and a condition-number gate against near-planar geometry degeneracy.
@@ -342,7 +343,7 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
         # are nearly coplanar/parallel -- solving through them is
         # numerically unstable and is exactly what produces spurious
         # multi-m/s "hypotheses" on a near-planar floor patch.
-        A_cond_sub = A_sub[:, :2] if force_2d else A_sub
+        A_cond_sub = A_sub[:, :2] if (force_2d or vz_prior is not None) else A_sub
         sing = np.linalg.svd(A_cond_sub, compute_uv=False)
         if sing[-1] < 1e-3 or (sing[0] / max(sing[-1], 1e-9)) > cond_reject_threshold:
             continue
@@ -350,6 +351,10 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
             if force_2d:
                 v_k_2d, _, _, _ = np.linalg.lstsq(A_sub[:, :2], b_sub, rcond=1e-2)
                 v_k = np.array([v_k_2d[0], v_k_2d[1], 0.0])
+            elif vz_prior is not None:
+                b_sub_xy = b_sub - A_sub[:, 2] * vz_prior
+                v_k_2d, _, _, _ = np.linalg.lstsq(A_sub[:, :2], b_sub_xy, rcond=1e-2)
+                v_k = np.array([v_k_2d[0], v_k_2d[1], vz_prior])
             else:
                 v_k, _, _, _ = np.linalg.lstsq(A_sub, b_sub, rcond=1e-2)
         except (np.linalg.LinAlgError, ValueError):
@@ -375,7 +380,7 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
         return None
 
     A_cond = -u_body[best_mask]
-    if force_2d:
+    if force_2d or vz_prior is not None:
         A_cond = A_cond[:, :2]
     cond = float(np.linalg.cond(A_cond))
     if cond > cond_reject_threshold:
@@ -685,6 +690,11 @@ class DopplerRIO:
         if self.imu_listener is not None:
             is_airborne = self.imu_listener.get_airborne()
 
+        # ── R2-L1: Vz prior — break the Vx/Vz null-direction degeneracy ──
+        vz_prior = None
+        if self.imu_listener is not None:
+            vz_prior = self.imu_listener.get_vz_ned()
+
         ransac_result = doppler_ransac(
             u_body, v_adjusted, self.eps, self.iters, self.min_inlier_ratio,
             static_margin_frac=self.static_margin_frac,
@@ -695,7 +705,8 @@ class DopplerRIO:
             max_speed_mps=self.max_speed_mps,
             static_min_ratio=self.static_min_ratio,
             static_min_points=self.static_min_points,
-            min_points_moving=self.min_points_moving)
+            min_points_moving=self.min_points_moving,
+            vz_prior=vz_prior)
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
@@ -710,11 +721,6 @@ class DopplerRIO:
             # mostly work while removing the flyaway mechanism in flight.
             cov = np.eye(3) * 0.25
         else:
-            # ── R2-L1: Vz prior — break the Vx/Vz null-direction degeneracy ──
-            vz_prior = None
-            if self.imu_listener is not None:
-                vz_prior = self.imu_listener.get_vz_ned()
-
             v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask,
                                         force_2d=self.force_2d,
                                         max_speed_mps=self.max_speed_mps,
@@ -912,6 +918,8 @@ def run_udp_loop(args):
                     cov = R_level.T @ cov @ R_level
 
                 cxx, cyy, czz = cov[0,0], cov[1,1], cov[2,2]
+                max_sigma = math.sqrt(max(cxx, cyy, czz))
+
                 if result.get('vz_prior_used', False):
                     czz = 100.0  # Strip the prior from published covariance
                     
