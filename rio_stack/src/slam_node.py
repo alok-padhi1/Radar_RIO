@@ -717,13 +717,13 @@ def run(args):
                         _t, _r, _p, _y, ox, oy, oz, _ab, _vz, _t_vz, _t_ab = IMU_PKT.unpack(data[:IMU_PKT.size])
                         latest_omega = np.array([ox, oy, oz])
                         latest_attitude = np.array([_r, _p, _y])
+                        slam.update_attitude(latest_attitude)
+                        last_imu_t = time.monotonic()
 
             if alt_receiver is not None:
                 for data in alt_receiver.drain():
                     if len(data) >= 4:
                         (latest_agl,) = struct.unpack('<f', data[:4])
-                        slam.update_attitude(latest_attitude)
-                        last_imu_t = time.monotonic()
                         
             if latest_attitude is not None and time.monotonic() - last_imu_t > 0.1:
                 latest_attitude = None

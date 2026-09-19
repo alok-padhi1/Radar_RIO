@@ -647,15 +647,6 @@ class DopplerRIO:
         if self.imu_listener is not None:
             omega = self.imu_listener.get_omega()
 
-        if self._v_prev is not None:
-            fc = FilterConfig(doppler_eps_mps=self.eps)
-            doppler_keep = gate_doppler_consistency(
-                xyz_b, v_meas, self._v_prev, omega, fc, self.mount.lever_arm
-            )
-            if doppler_keep.sum() < 3:
-                return {'t': t_frame, 'valid': False, 'n_total': int(doppler_keep.sum()), 'reason': 'doppler_gate'}
-            xyz_b, v_meas, ranges, u_body = xyz_b[doppler_keep], v_meas[doppler_keep], ranges[doppler_keep], u_body[doppler_keep]
-
         if omega is not None:
             # Correct for the sensor's own velocity due to body rotation about
             # the lever arm:  v_sensor = v_body + omega x r_lever.
@@ -677,6 +668,18 @@ class DopplerRIO:
         else:
             v_adjusted = v_meas
 
+        if self._v_prev is not None:
+            fc = FilterConfig(doppler_eps_mps=self.eps)
+            doppler_keep = gate_doppler_consistency(
+                xyz_b, v_adjusted, self._v_prev, None, fc, None
+            )
+            if doppler_keep.sum() < 3:
+                return {'t': t_frame, 'valid': False, 'n_total': int(doppler_keep.sum()), 'reason': 'doppler_gate'}
+            xyz_b, v_adjusted, ranges, u_body = xyz_b[doppler_keep], v_adjusted[doppler_keep], ranges[doppler_keep], u_body[doppler_keep]
+            xyz_radar_native = xyz_radar_native[doppler_keep]
+            
+        n_remaining = xyz_b.shape[0]
+
         # Determine airborne state from the IMU listener (safe default: False)
         is_airborne = False
         if self.imu_listener is not None:
@@ -696,7 +699,7 @@ class DopplerRIO:
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
-            return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+            return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
         mask, is_static, cond = ransac_result
 
         if is_static:
@@ -717,7 +720,7 @@ class DopplerRIO:
                                         max_speed_mps=self.max_speed_mps,
                                         vz_prior=vz_prior)
             if v_seed is None:
-                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+                return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
 
             R_used = self.mount.current_rotation(attitude)
             v_body, cov = irls_refit(
@@ -730,7 +733,7 @@ class DopplerRIO:
                 vz_prior=vz_prior)
 
             if v_body is None:
-                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+                return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
 
             # ── R2-L3: Posterior sigma gate ──
             # The covariance already computed by irls_refit reflects how well
@@ -741,10 +744,10 @@ class DopplerRIO:
                 logging.info(
                     f"RIO posterior sigma gate: sigma_v={sigma.round(3)} m/s "
                     f"exceeds {self.max_sigma_v_mps} -- null direction active, rejecting frame")
-                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum()),
+                return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
                         'reason': 'sigma_gate'}
             if v_body is None:
-                return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+                return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
 
         # ── R2-L2: Acceleration gate ──
         # A multirotor cannot change horizontal velocity by >1.5 g between
@@ -771,7 +774,7 @@ class DopplerRIO:
                         f"{self.max_accel_mps2} m/s² limit "
                         f"(v_prev={self._v_prev.round(2)} → v={v_body.round(2)}, "
                         f"dt={_dt:.3f}s) — gap, not a fault")
-                    return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum()),
+                    return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
                             'reason': 'accel_gate'}
 
         # Deadband: snap near-zero solves to exactly zero. Below this speed
@@ -789,7 +792,7 @@ class DopplerRIO:
         return {
             't': t_frame, 'valid': True,
             'v_body': v_body, 'cov_v': cov,
-            'n_inliers': int(mask.sum()), 'n_total': int(keep.sum()),
+            'n_inliers': int(mask.sum()), 'n_total': n_remaining,
             'is_static': is_static, 'cond': cond,
             'omega': omega,
             'airborne': is_airborne,
