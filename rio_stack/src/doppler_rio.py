@@ -37,6 +37,7 @@ import math
 from dataclasses import dataclass, field
 import numpy as np
 
+from filters import gate_doppler_consistency, FilterConfig
 
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 # Extended packet: t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
@@ -645,6 +646,16 @@ class DopplerRIO:
         omega = None
         if self.imu_listener is not None:
             omega = self.imu_listener.get_omega()
+
+        if self._v_prev is not None:
+            fc = FilterConfig(doppler_eps_mps=self.eps)
+            doppler_keep = gate_doppler_consistency(
+                xyz_b, v_meas, self._v_prev, omega, fc, self.mount.lever_arm
+            )
+            if doppler_keep.sum() < 3:
+                return {'t': t_frame, 'valid': False, 'n_total': int(doppler_keep.sum()), 'reason': 'doppler_gate'}
+            xyz_b, v_meas, ranges, u_body = xyz_b[doppler_keep], v_meas[doppler_keep], ranges[doppler_keep], u_body[doppler_keep]
+
         if omega is not None:
             # Correct for the sensor's own velocity due to body rotation about
             # the lever arm:  v_sensor = v_body + omega x r_lever.
@@ -783,6 +794,7 @@ class DopplerRIO:
             'omega': omega,
             'airborne': is_airborne,
             'vz_prior_used': (vz_prior is not None) if not is_static else False,
+            'attitude': attitude,
         }
 
 
@@ -888,7 +900,14 @@ def run_udp_loop(args):
                     | (int(result.get('vz_prior_used', False)) << 2)
                     | (int(rio._v_prev is not None) << 3)
                 )
-                
+
+                attitude = result.get('attitude')
+                if rio.imu_level_points and attitude is not None:
+                    R_level = rio.mount.get_R(attitude)
+                    v_raw = R_level.T @ np.array([vx, vy, vz])
+                    vx, vy, vz = v_raw[0], v_raw[1], v_raw[2]
+                    cov = R_level.T @ cov @ R_level
+
                 cxx, cyy, czz = cov[0,0], cov[1,1], cov[2,2]
                 if result.get('vz_prior_used', False):
                     czz = 100.0  # Strip the prior from published covariance

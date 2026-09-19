@@ -445,6 +445,9 @@ class RadarSLAM:
 
     def process_keyframe(self, xyz_body: np.ndarray, v_radial: np.ndarray,
                           t: float, omega: np.ndarray = None, agl_m: float | None = None) -> dict:
+        if self.last_v_body_time is not None and time.monotonic() - self.last_v_body_time > 0.3:
+            self.last_v_body = None
+
         if xyz_body.shape[0] < 8:
             return {'valid': False, 'reason': 'too_few_points'}
 
@@ -498,8 +501,6 @@ class RadarSLAM:
         # Frame-to-Map requires the absolute predicted pose as the initial guess.
         T_pred = self.T_world.copy()
         if self.last_v_body is not None and len(self.pose_chain) >= 1:
-            if self.last_v_body_time is not None and time.monotonic() - self.last_v_body_time > 0.3:
-                self.last_v_body = np.zeros(3)
             # Shift translation by RIO velocity (velocity is in local body frame, 
             # so we rotate it into the world frame before adding)
             t_shift = self.T_world[:3, :3] @ (self.last_v_body * dt)
