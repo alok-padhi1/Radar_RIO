@@ -257,7 +257,8 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
                     static_min_ratio: float = 0.70,
                     static_min_points: int = 10,
                     min_points_moving: int = 8,
-                    vz_prior: float | None = None):
+                    vz_prior: float | None = None,
+                    vz_prior_axis: np.ndarray | None = None):
     """
     Vectorized Doppler-RANSAC with a static-hypothesis margin requirement
     and a condition-number gate against near-planar geometry degeneracy.
@@ -351,10 +352,18 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
             if force_2d:
                 v_k_2d, _, _, _ = np.linalg.lstsq(A_sub[:, :2], b_sub, rcond=1e-2)
                 v_k = np.array([v_k_2d[0], v_k_2d[1], 0.0])
-            elif vz_prior is not None:
-                b_sub_xy = b_sub - A_sub[:, 2] * vz_prior
-                v_k_2d, _, _, _ = np.linalg.lstsq(A_sub[:, :2], b_sub_xy, rcond=1e-2)
-                v_k = np.array([v_k_2d[0], v_k_2d[1], vz_prior])
+            elif vz_prior is not None and vz_prior_axis is not None:
+                ax, ay, az = vz_prior_axis
+                A_2d = np.zeros((3, 2))
+                A_2d[:, 0] = A_sub[:, 0] - A_sub[:, 2] * (ax / az)
+                A_2d[:, 1] = A_sub[:, 1] - A_sub[:, 2] * (ay / az)
+                b_2d = b_sub - A_sub[:, 2] * (vz_prior / az)
+                v_k_2d, _, _, _ = np.linalg.lstsq(A_2d, b_2d, rcond=1e-2)
+                v_k = np.array([
+                    v_k_2d[0],
+                    v_k_2d[1],
+                    (vz_prior - v_k_2d[0] * ax - v_k_2d[1] * ay) / az
+                ])
             else:
                 v_k, _, _, _ = np.linalg.lstsq(A_sub, b_sub, rcond=1e-2)
         except (np.linalg.LinAlgError, ValueError):
@@ -390,7 +399,8 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
 
 
 def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0,
-                   force_2d: bool = False, vz_prior: float | None = None):
+                   force_2d: bool = False, vz_prior: float | None = None,
+                   vz_prior_axis: np.ndarray | None = None):
     """Eq. (9): v = (A^T W A)^-1 A^T W b using weighted least-squares with SVD conditioning."""
     A = -u_body[mask]
     if force_2d:
@@ -402,7 +412,7 @@ def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0,
     b_w = b * sqrt_w
     # Inject vertical-velocity prior to break the Vx/Vz null direction
     if not force_2d:
-        A_w, b_w = _augment_with_vz_prior(A_w, b_w, vz_prior)
+        A_w, b_w = _augment_with_vz_prior(A_w, b_w, vz_prior, vz_prior_axis)
     try:
         v_res, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-2)
         if force_2d:
@@ -471,7 +481,8 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
                 sigma_r_m, sigma_az_rad, sigma_el_rad, sigma_v_mps,
                 huber_delta_mps=0.20, max_iters=4, tol_mps=1e-3,
                 gross_outlier_mult=10.0, max_speed_mps=25.0, force_2d=False,
-                vz_prior: float | None = None):
+                vz_prior: float | None = None,
+                vz_prior_axis: np.ndarray | None = None):
     """Stage 4A: IRLS refinement of the RANSAC-seeded velocity."""
     v = np.asarray(v_seed, dtype=float).copy()
     max_iters = int(np.clip(max_iters, 3, 5))
@@ -509,7 +520,7 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
         b_w = b_full * sqrt_w
         # Inject Vz prior each IRLS iteration to keep the null direction pinned
         if not force_2d:
-            A_w, b_w = _augment_with_vz_prior(A_w, b_w, vz_prior)
+            A_w, b_w = _augment_with_vz_prior(A_w, b_w, vz_prior, vz_prior_axis)
         try:
             v_new_sub, _, _, _ = np.linalg.lstsq(A_w, b_w, rcond=1e-2)
             if force_2d:
@@ -543,6 +554,7 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
 
 def _augment_with_vz_prior(A_w: np.ndarray, b_w: np.ndarray,
                             vz_prior: float | None,
+                            vz_prior_axis: np.ndarray | None = None,
                             sigma_vz: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
     """Append a soft pseudo-measurement [0,0,1]·v = vz_prior with weight 1/sigma_vz.
 
@@ -561,7 +573,9 @@ def _augment_with_vz_prior(A_w: np.ndarray, b_w: np.ndarray,
     if vz_prior is None or not math.isfinite(vz_prior):
         return A_w, b_w
     w = 1.0 / max(sigma_vz, 0.2)
-    A_w = np.vstack([A_w, np.array([[0.0, 0.0, 1.0]]) * w])
+    if vz_prior_axis is None:
+        vz_prior_axis = np.array([0.0, 0.0, 1.0])
+    A_w = np.vstack([A_w, vz_prior_axis * w])
     b_w = np.concatenate([b_w, [vz_prior * w]])
     return A_w, b_w
 
@@ -692,8 +706,12 @@ class DopplerRIO:
 
         # ── R2-L1: Vz prior — break the Vx/Vz null-direction degeneracy ──
         vz_prior = None
+        vz_prior_axis = np.array([0.0, 0.0, 1.0])
         if self.imu_listener is not None:
             vz_prior = self.imu_listener.get_vz_ned()
+            if not self.imu_level_points and attitude is not None:
+                R_level = self.mount.get_R(attitude)
+                vz_prior_axis = R_level[2, :]  # 3rd row represents Earth Z axis in Body frame
 
         ransac_result = doppler_ransac(
             u_body, v_adjusted, self.eps, self.iters, self.min_inlier_ratio,
@@ -706,7 +724,8 @@ class DopplerRIO:
             static_min_ratio=self.static_min_ratio,
             static_min_points=self.static_min_points,
             min_points_moving=self.min_points_moving,
-            vz_prior=vz_prior)
+            vz_prior=vz_prior,
+            vz_prior_axis=vz_prior_axis)
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
@@ -724,7 +743,8 @@ class DopplerRIO:
             v_seed, _ = weighted_refit(u_body, v_adjusted, ranges, mask,
                                         force_2d=self.force_2d,
                                         max_speed_mps=self.max_speed_mps,
-                                        vz_prior=vz_prior)
+                                        vz_prior=vz_prior,
+                                        vz_prior_axis=vz_prior_axis)
             if v_seed is None:
                 return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
 
@@ -736,7 +756,7 @@ class DopplerRIO:
                 huber_delta_mps=self.huber_delta_mps, max_iters=self.irls_max_iters,
                 tol_mps=self.irls_tol_mps, gross_outlier_mult=self.gross_outlier_mult,
                 force_2d=self.force_2d, max_speed_mps=self.max_speed_mps,
-                vz_prior=vz_prior)
+                vz_prior=vz_prior, vz_prior_axis=vz_prior_axis)
 
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
