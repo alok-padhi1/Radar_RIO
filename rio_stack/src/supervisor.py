@@ -131,6 +131,7 @@ def build_children(args) -> list[Child]:
                        "--sigma-v", str(args.sigma_v),
                        "--max-range", str(args.max_range)]
                        + (["--imu-port", "5020"] if args.imu_port else [])
+                       + (["--alt-port", "5030"])
                        + (["--imu-level-points"] if args.imu_level_points else ["--no-imu-level-points"]),
               critical=True, start_delay_s=1.0),
         Child("slam", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "slam_node.py"),
