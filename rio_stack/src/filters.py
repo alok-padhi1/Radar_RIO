@@ -138,7 +138,7 @@ class PersistenceTracker:
         self.cfg = cfg
         self._history: list[np.ndarray] = []  # list of (N_k, 3) past frames, newest last
 
-    def filter(self, xyz: np.ndarray) -> np.ndarray:
+    def filter(self, xyz: np.ndarray, v_body: np.ndarray = None, dt: float = 0.0) -> np.ndarray:
         cfg = self.cfg
         if not self._history:
             self._history.append(xyz)
@@ -146,6 +146,12 @@ class PersistenceTracker:
             # Pass everything through rather than discarding an entire
             # frame's worth of real structure while the tracker warms up.
             return np.ones(len(xyz), dtype=bool)
+
+        # Deskew history to current body frame: the vehicle moved forward by (v_body * dt)
+        # so objects in the past frames appear to have moved backwards by -(v_body * dt)
+        if v_body is not None and dt > 0:
+            shift = -v_body * dt
+            self._history = [past + shift for past in self._history]
 
         recent = self._history[-cfg.persistence_window:]
         hits = np.zeros(len(xyz), dtype=int)
@@ -212,7 +218,8 @@ def preprocess_frame(xyz_body: np.ndarray, v_radial: np.ndarray,
                       v_body_hint: np.ndarray | None,
                       omega_hint: np.ndarray | None,
                       cfg: FilterConfig,
-                      lever_arm: np.ndarray | None = None) -> PreprocessResult:
+                      lever_arm: np.ndarray | None = None,
+                      dt: float = 0.0) -> PreprocessResult:
     n_raw = len(xyz_body)
 
     keep = gate_range(xyz_body, cfg)
@@ -223,7 +230,7 @@ def preprocess_frame(xyz_body: np.ndarray, v_radial: np.ndarray,
     xyz2 = xyz1[keep]
     n_after_doppler = len(xyz2)
 
-    keep = tracker.filter(xyz2)
+    keep = tracker.filter(xyz2, v_body=v_body_hint, dt=dt)
     xyz3 = xyz2[keep]
     n_after_persistence = len(xyz3)
 

@@ -81,6 +81,14 @@ def gps_path_length(gps: list[dict]) -> float:
             dz = gps[i]['enu'][2] - gps[last_idx]['enu'][2]
             total += math.sqrt(dx*dx + dy*dy + dz*dz)
             last_idx = i
+            
+    # Mathematically close the loop by appending the exact remainder
+    if last_idx < len(gps) - 1:
+        dx = gps[-1]['enu'][0] - gps[last_idx]['enu'][0]
+        dy = gps[-1]['enu'][1] - gps[last_idx]['enu'][1]
+        dz = gps[-1]['enu'][2] - gps[last_idx]['enu'][2]
+        total += math.sqrt(dx*dx + dy*dy + dz*dz)
+        
     return total
 
 
@@ -101,11 +109,14 @@ def rio_integrated_distance(rio: list[dict]) -> tuple[float, np.ndarray]:
     pos = np.zeros(3)
     for i in range(1, len(rio)):
         dt = rio[i]['t_mono'] - rio[i-1]['t_mono']
-        if dt <= 0 or dt > 0.5:
+        if dt <= 0:
             continue
-        v = np.array([rio[i]['vx'], rio[i]['vy'], rio[i]['vz']])
-        pos += v * dt
-        total_dist += float(np.linalg.norm(v)) * dt
+        # Trapezoidal integration for exact physical coasting over dropouts
+        v_prev = np.array([rio[i-1]['vx'], rio[i-1]['vy'], rio[i-1]['vz']])
+        v_curr = np.array([rio[i]['vx'], rio[i]['vy'], rio[i]['vz']])
+        v_avg = (v_prev + v_curr) / 2.0
+        pos += v_avg * dt
+        total_dist += float(np.linalg.norm(v_avg)) * dt
     return total_dist, pos
 
 
@@ -116,41 +127,37 @@ def gps_derived_velocity(gps: list[dict]) -> list[dict]:
     We compute speed (scalar) and per-axis velocities.
     """
     vels = []
+    last_idx = 0
     for i in range(1, len(gps)):
-        dt = gps[i]['t_mono'] - gps[i-1]['t_mono']
-        if dt < 0.1:  # skip duplicates
+        dt = gps[i]['t_mono'] - gps[last_idx]['t_mono']
+        if dt < 0.5:  # accumulate until we have at least 0.5s horizon
             continue
-        dx = gps[i]['enu'][0] - gps[i-1]['enu'][0]
-        dy = gps[i]['enu'][1] - gps[i-1]['enu'][1]
-        dz = gps[i]['enu'][2] - gps[i-1]['enu'][2]
+        dx = gps[i]['enu'][0] - gps[last_idx]['enu'][0]
+        dy = gps[i]['enu'][1] - gps[last_idx]['enu'][1]
+        dz = gps[i]['enu'][2] - gps[last_idx]['enu'][2]
         speed = math.sqrt(dx*dx + dy*dy + dz*dz) / dt
         vels.append({
-            't_mono': (gps[i]['t_mono'] + gps[i-1]['t_mono']) / 2.0,
+            't_mono': (gps[i]['t_mono'] + gps[last_idx]['t_mono']) / 2.0,
             'speed':  speed,
             'vx':     dx / dt,
             'vy':     dy / dt,
             'vz':     dz / dt,
         })
+        last_idx = i
     return vels
 
 
-def time_align_nearest(ref_entries: list[dict], target_entries: list[dict],
-                       max_dt: float = 1.0) -> list[tuple[dict, dict]]:
-    """For each ref entry, find the nearest target entry within max_dt.
-
-    Returns list of (ref, target) pairs.
-    """
-    if not ref_entries or not target_entries:
-        return []
-
-    target_times = np.array([e['t_mono'] for e in target_entries])
-    pairs = []
-    for ref in ref_entries:
-        t = ref['t_mono']
-        idx = int(np.argmin(np.abs(target_times - t)))
-        if abs(target_times[idx] - t) <= max_dt:
-            pairs.append((ref, target_entries[idx]))
-    return pairs
+def interpolate_gps(gps: list[dict], target_t: float) -> list[float]:
+    """Linearly interpolate exact GPS ENU coordinate at target microsecond."""
+    gps_t = np.array([e['t_mono'] for e in gps])
+    if target_t <= gps_t[0]: return gps[0]['enu']
+    if target_t >= gps_t[-1]: return gps[-1]['enu']
+    idx = np.searchsorted(gps_t, target_t)
+    t0, t1 = gps_t[idx-1], gps_t[idx]
+    p0 = np.array(gps[idx-1]['enu'])
+    p1 = np.array(gps[idx]['enu'])
+    frac = (target_t - t0) / (t1 - t0) if t1 > t0 else 0.0
+    return (p0 + (p1 - p0) * frac).tolist()
 
 
 def compute_position_errors(slam: list[dict], gps: list[dict], alt: list[dict] = None) -> dict:
@@ -163,41 +170,44 @@ def compute_position_errors(slam: list[dict], gps: list[dict], alt: list[dict] =
 
     Also fits a linear trend to estimate drift rate.
     """
-    pairs = time_align_nearest(slam, gps, max_dt=1.5)
-    if not pairs:
+    if not slam or not gps:
         return {}
 
-    # Extract all XY points
-    slam_pts = np.array([p[0]['pos'][:2] for p in pairs])
-    gps_pts = np.array([p[1]['enu'][:2] for p in pairs])
+    # Exact GPS interpolation instead of nearest-neighbor temporal misalignment
+    slam_valid = [s for s in slam if gps[0]['t_mono'] <= s['t_mono'] <= gps[-1]['t_mono']]
+    if not slam_valid:
+        return {}
+        
+    slam_pts = np.array([s['pos'][:2] for s in slam_valid])
+    gps_pts = np.array([interpolate_gps(gps, s['t_mono'])[:2] for s in slam_valid])
+    
+    # Center points before Kabsch algorithm (SVD)
+    slam_mean = np.mean(slam_pts, axis=0)
+    gps_mean = np.mean(gps_pts, axis=0)
+    
+    slam_centered = slam_pts - slam_mean
+    gps_centered = gps_pts - gps_mean
     
     # Compute optimal 2D rotation (SVD/Kabsch) to align SLAM heading to GPS heading
-    H = slam_pts.T @ gps_pts
+    H = slam_centered.T @ gps_centered
     U, S, Vt = np.linalg.svd(H)
     R = Vt.T @ U.T
     if np.linalg.det(R) < 0:
         Vt[1, :] *= -1
         R = Vt.T @ U.T
         
-    # Rotate all SLAM XY points
-    slam_pts_aligned = slam_pts @ R.T
+    # Rotate all SLAM XY points and align centroids
+    slam_pts_aligned = (slam_centered @ R.T) + gps_mean
 
     errors_3d = []
     errors_xy = []
     errors_z = []
     times = []
 
-    pairs_alt = None
-    alt_lookup = {}
-    if alt:
-        pairs_alt = time_align_nearest(slam, alt, max_dt=0.5)
-        alt_lookup = {p[0]['t_mono']: p[1]['range_m'] for p in pairs_alt}
+    z_offset_slam = slam_valid[0]['pos'][2]
+    z_offset_gps = interpolate_gps(gps, slam_valid[0]['t_mono'])[2]
 
-    z_offset_slam = pairs[0][0]['pos'][2]
-    z_offset_gps = pairs[0][1]['enu'][2]
-    z_offset_alt = alt[0]['range_m'] if alt else 0.0
-
-    for i, (slam_e, gps_e) in enumerate(pairs):
+    for i, slam_e in enumerate(slam_valid):
         sp_xy = slam_pts_aligned[i]
         gp_xy = gps_pts[i]
         
@@ -205,9 +215,8 @@ def compute_position_errors(slam: list[dict], gps: list[dict], alt: list[dict] =
         rel_sp_z = -(slam_e['pos'][2] - z_offset_slam)
 
         t = slam_e['t_mono']
-        # Always use GPS ENU Z for absolute SLAM error comparison.
-        # Do not use altimeter AGL because SLAM tracks absolute world MSL.
-        rel_gp_z = gps_e['enu'][2] - z_offset_gps
+        gp_enu = interpolate_gps(gps, t)
+        rel_gp_z = gp_enu[2] - z_offset_gps
 
         err_xy = float(np.linalg.norm(sp_xy - gp_xy))
         err_z  = abs(rel_sp_z - rel_gp_z)
@@ -216,7 +225,7 @@ def compute_position_errors(slam: list[dict], gps: list[dict], alt: list[dict] =
         errors_3d.append(err_3d)
         errors_xy.append(err_xy)
         errors_z.append(err_z)
-        times.append(slam_e['t_mono'])
+        times.append(t)
 
     result = {
         'n_pairs':      len(errors_3d),
@@ -343,9 +352,9 @@ def print_report(gps, rio, slam, imu, alt, meta, log_path) -> bool:
     if slam:
         slam_disp = float(np.linalg.norm(slam[-1]['pos']))
         print(f"  SLAM net displacement:   {slam_disp:.2f} m")
-        if gps_disp_3d > 1.0:
-            slam_disp_err = abs(slam_disp - gps_disp_3d) / gps_disp_3d * 100
-            print(f"  SLAM displacement error: {slam_disp_err:.1f}%")
+        if gps_disp_3d > 0.1:
+            slam_disp_err_m = abs(slam_disp - gps_disp_3d)
+            print(f"  SLAM displacement error: {slam_disp_err_m:.2f} m")
 
     # ── Position Error (SLAM vs GPS/Alt) ──
     pos_errs = compute_position_errors(slam, gps, alt)

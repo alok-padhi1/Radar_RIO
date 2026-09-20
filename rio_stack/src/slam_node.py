@@ -265,6 +265,7 @@ class RadarSLAM:
         self.last_v_body = None           # most recent RIO estimate, for deskew + Doppler prior
         self.last_v_body_time = None
         self.last_kf_t = None
+        self.last_frame_t = None
         self.last_attitude = None         # (3,) np.ndarray: [roll, pitch, yaw] from IMU (rad)
 
         # Sec. "Pipeline" addendum: raw keyframes are pre-cleaned (leakage,
@@ -451,8 +452,11 @@ class RadarSLAM:
         if xyz_body.shape[0] < 8:
             return {'valid': False, 'reason': 'too_few_points'}
 
+        dt = (t - self.last_frame_t) if self.last_frame_t is not None else 0.0
+        self.last_frame_t = t
+
         pre = preprocess_frame(xyz_body, v_radial, self.persistence_tracker,
-                                self.last_v_body, omega, self.filter_cfg)
+                                self.last_v_body, omega, self.filter_cfg, dt=dt)
         pcd = pre.pcd
         if len(pcd.points) < 8:
             return {

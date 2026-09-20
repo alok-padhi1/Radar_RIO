@@ -214,6 +214,7 @@ def run(args):
     rio_dist = 0.0
     rio_pos = np.zeros(3)
     last_rio_t = None
+    last_rio_v = None
 
     try:
         with open(log_path, 'w') as f:
@@ -252,13 +253,17 @@ def run(args):
                         vz_prior_used = bool((flags >> 2) & 1)
 
                         # Integrate distance for odometry comparison
-                        v = np.array([vx, vy, vz])
-                        if last_rio_t is not None:
+                        v_curr = np.array([vx, vy, vz])
+                        if last_rio_t is not None and last_rio_v is not None:
                             dt = t_mono - last_rio_t
-                            if 0 < dt < 0.5:
-                                rio_pos += v * dt
-                                rio_dist += float(np.linalg.norm(v)) * dt
+                            if dt > 0:
+                                # Coast across dropouts perfectly using trapezoidal average
+                                v_avg = (last_rio_v + v_curr) / 2.0
+                                rio_pos += v_avg * dt
+                                rio_dist += float(np.linalg.norm(v_avg)) * dt
+                        
                         last_rio_t = t_mono
+                        last_rio_v = v_curr
 
                         entry = {
                             'type':     'rio',

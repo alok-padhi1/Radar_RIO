@@ -136,6 +136,70 @@ class IMUListener:
         self._stop.set()
 
 
+class AltimeterListener:
+    """Background thread that listens to Altimeter UDP packets and computes
+    vertical velocity (vz_ned) via smoothed finite differencing."""
+
+    def __init__(self, port: int, ip: str = '127.0.0.1'):
+        self._port = port
+        self._ip = ip
+        self._lock = threading.Lock()
+        
+        self._t_last = 0.0
+        self._alt_last = 0.0
+        self._vz = 0.0
+        
+        self._thread = None
+        self._stop = threading.Event()
+
+    def start(self):
+        self._thread = threading.Thread(target=self._run, daemon=True, name='AltimeterListener')
+        self._thread.start()
+
+    def _run(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((self._ip, self._port))
+        sock.settimeout(0.5)
+        print(f"[doppler_rio] Altimeter listener started on {self._ip}:{self._port}")
+        
+        while not self._stop.is_set():
+            try:
+                data, _ = sock.recvfrom(32)
+                if len(data) >= 4:
+                    import struct
+                    (alt_m,) = struct.unpack('<f', data[:4])
+                    t_now = time.monotonic()
+                    
+                    with self._lock:
+                        if self._t_last > 0.0:
+                            dt = t_now - self._t_last
+                            if dt > 0.01:
+                                # NED Z is down, so if alt increases, drone moved up (negative Z velocity).
+                                # vz = - (alt_new - alt_old) / dt
+                                vz_raw = -(alt_m - self._alt_last) / dt
+                                # Simple EMA low-pass filter to smooth the derivative
+                                alpha = 0.3
+                                self._vz = alpha * vz_raw + (1.0 - alpha) * self._vz
+                        
+                        self._alt_last = alt_m
+                        self._t_last = t_now
+            except socket.timeout:
+                continue
+            except Exception:
+                continue
+        sock.close()
+
+    def get_vz(self, max_age_s: float = 0.5) -> float | None:
+        """Returns the derived vertical velocity (NED, +down) or None if stale."""
+        with self._lock:
+            if time.monotonic() - self._t_last > max_age_s:
+                return None
+            return self._vz
+
+    def stop(self):
+        self._stop.set()
+
+
 @dataclass
 class TiltMount:
     theta_tilt_deg: float = 40.0
@@ -576,7 +640,7 @@ def _augment_with_vz_prior(A_w: np.ndarray, b_w: np.ndarray,
     if vz_prior_axis is None:
         vz_prior_axis = np.array([0.0, 0.0, 1.0])
     A_w = np.vstack([A_w, vz_prior_axis * w])
-    b_w = np.concatenate([b_w, [vz_prior * w]])
+    b_w = np.concatenate([b_w, np.array([vz_prior * w])])
     return A_w, b_w
 
 
@@ -586,6 +650,7 @@ class DopplerRIO:
                  static_margin_frac=0.12, static_margin_min=3,
                  cond_reject_threshold=30.0, deadband_mps=0.05,
                  imu_listener: IMUListener | None = None,
+                 alt_listener=None,
                  huber_delta_mps=0.20, irls_max_iters=4, irls_tol_mps=1e-3,
                  gross_outlier_mult=10.0,
                  sigma_r_m=0.10, sigma_az_rad=math.radians(2.0),
@@ -611,6 +676,7 @@ class DopplerRIO:
         self.cond_reject_threshold = cond_reject_threshold
         self.deadband_mps = deadband_mps
         self.imu_listener = imu_listener
+        self.alt_listener = alt_listener
         self.huber_delta_mps = huber_delta_mps
         self.irls_max_iters = irls_max_iters
         self.irls_tol_mps = irls_tol_mps
@@ -698,8 +764,14 @@ class DopplerRIO:
         # ── R2-L1: Vz prior — break the Vx/Vz null-direction degeneracy ──
         vz_prior = None
         vz_prior_axis = np.array([0.0, 0.0, 1.0])
-        if self.imu_listener is not None:
+        
+        if self.alt_listener is not None:
+            vz_prior = self.alt_listener.get_vz()
+            
+        if vz_prior is None and self.imu_listener is not None:
             vz_prior = self.imu_listener.get_vz_ned()
+            
+        if vz_prior is not None:
             if not self.imu_level_points and attitude is not None:
                 R_level = self.mount.get_R(attitude)
                 vz_prior_axis = R_level[2, :]  # 3rd row represents Earth Z axis in Body frame
@@ -851,6 +923,12 @@ def run_udp_loop(args):
         imu_listener = IMUListener(port=args.imu_port, ip=args.listen_ip)
         imu_listener.start()
 
+    # ── Altimeter listener (optional) ──
+    alt_listener = None
+    if args.alt_port and args.alt_port > 0:
+        alt_listener = AltimeterListener(port=args.alt_port, ip=args.listen_ip)
+        alt_listener.start()
+
     if getattr(args, 'force_2d', False) and 10.0 < args.theta_tilt_deg < 80.0:
         raise SystemExit(
             f"REFUSING: --force-2d with --theta-tilt-deg {args.theta_tilt_deg} is "
@@ -865,6 +943,7 @@ def run_udp_loop(args):
                       cond_reject_threshold=args.cond_reject_threshold,
                       deadband_mps=args.deadband,
                       imu_listener=imu_listener,
+                      alt_listener=alt_listener,
                       huber_delta_mps=args.huber_delta,
                       irls_max_iters=args.irls_max_iters,
                       irls_tol_mps=args.irls_tol,
@@ -1016,11 +1095,41 @@ def self_test():
     logging.info(f"v_true      = {v_true}")
     logging.info(f"v_estimated = {result['v_body']}")
     logging.info(f"|error|     = {err:.4f} m/s")
-    print(f"[self_test] inliers     = {result['n_inliers']}/{result['n_total']} "
-          f"(injected {n_outliers} outliers among {n_static + n_outliers})")
+    print(f"[self_test] cruise inliers = {result['n_inliers']}/{result['n_total']} "
+          f"(injected {n_outliers} outliers)")
     assert err < 0.15, f"velocity error too large: {err}"
     assert n_static - 10 <= result['n_inliers'] <= n_static + 10, "inlier count off from ground truth"
-    logging.info("PASS")
+    logging.info("Cruise PASS")
+
+    # --- Scenario 2: Vertical Descent Hover (The Hallucination Fix) ---
+    class MockAltimeter:
+        def __init__(self, vz):
+            self.vz = vz
+        def get_vz(self, max_age_s=0.5):
+            return self.vz
+
+    rio_hover = DopplerRIO(mount, eps=0.15, iters=80, min_inlier_ratio=0.3, alt_listener=MockAltimeter(1.2))
+    v_hover = np.array([0.0, 0.0, 1.2])  # Pure vertical descent, 0 horizontal speed
+    
+    v_radial_static_hover = -(u_body_static @ v_hover) + rng.normal(0, 0.03, n_static)
+    v_radial_out_hover = rng.uniform(-5, 5, n_outliers)
+    
+    v_radial_hover = np.concatenate([v_radial_static_hover, v_radial_out_hover])
+    points_radar_hover = np.column_stack([xyz_radar, v_radial_hover])
+    rng.shuffle(points_radar_hover)
+
+    result_hover = rio_hover.process_frame(points_radar_hover, t_frame=0.1)
+    assert result_hover['valid'], "RIO rejected hover synthetic frame"
+    err_hover = np.linalg.norm(result_hover['v_body'] - v_hover)
+    
+    logging.info(f"v_hover_true = {v_hover}")
+    logging.info(f"v_hover_est  = {result_hover['v_body']}")
+    logging.info(f"|hover_error| = {err_hover:.4f} m/s")
+    print(f"[self_test] hover inliers = {result_hover['n_inliers']}/{result_hover['n_total']}")
+    
+    assert err_hover < 0.15, f"Hover velocity error too large! Hallucination detected! error: {err_hover}"
+    logging.info("Hover Altimeter Fusion PASS")
+    logging.info("ALL TESTS PASS")
 
 
 if __name__ == '__main__':
@@ -1074,6 +1183,8 @@ if __name__ == '__main__':
     p.add_argument('--imu-port', type=int, default=0,
                     help="UDP port to receive IMU data from imu_bridge.py "
                          "(default 0 = disabled, no rotation compensation)")
+    p.add_argument('--alt-port', type=int, default=0,
+                    help="UDP port to receive altimeter data (default 0 = disabled)")
     p.add_argument('--huber-delta', type=float, default=0.20,
                     help="Stage 4A: Huber IRLS delta in m/s")
     p.add_argument('--irls-max-iters', type=int, default=4, choices=[3, 4, 5])
