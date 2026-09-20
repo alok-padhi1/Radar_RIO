@@ -110,7 +110,10 @@ def gate_doppler_consistency(xyz: np.ndarray, v_radial: np.ndarray,
     r = np.linalg.norm(xyz, axis=1)
     r = np.clip(r, 1e-3, None)
     u = xyz / r[:, None]
-    v_hint = v_body_hint if v_body_hint is not None else np.zeros(3)
+    if v_body_hint is None:
+        return np.ones(len(xyz), dtype=bool)
+        
+    v_hint = v_body_hint
     
     if omega_hint is not None:
         lever = lever_arm if lever_arm is not None else np.zeros(3)

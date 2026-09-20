@@ -80,7 +80,7 @@ class TiltMount:
         self.P = np.array([
             [0.0,              1.0, 0.0],
             [self.lateral_sign, 0.0, 0.0],
-            [0.0,              0.0, -1.0],
+            [0.0,              0.0, -self.lateral_sign],
         ])
         self.R_static = R_tilt @ self.P
 
