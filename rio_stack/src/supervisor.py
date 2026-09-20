@@ -308,8 +308,7 @@ def main():
         raise SystemExit("REFUSING: flight configuration requires --imu-port. RIO and SLAM "
                           "must share a levelled frame, which requires FC attitude.")
     # For flight, levelling is ON for both nodes or OFF for both. Never mixed.
-    args.imu_level_points = True
-    
+    # (Removed forceful override of args.imu_level_points to respect user input)
     if args.enable_nav and not args.altimeter_serial:
         raise SystemExit("REFUSING: nav requires --altimeter-serial for the vertical geofence "
                          "and failsafe logic.")
