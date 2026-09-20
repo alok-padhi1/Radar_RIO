@@ -37,7 +37,7 @@ import math
 from dataclasses import dataclass, field
 import numpy as np
 
-from filters import gate_doppler_consistency, FilterConfig
+from filters import FilterConfig
 
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 # Extended packet: t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
@@ -687,16 +687,7 @@ class DopplerRIO:
         else:
             v_adjusted = v_meas
 
-        if self._v_prev is not None:
-            fc = FilterConfig(doppler_eps_mps=self.eps)
-            doppler_keep = gate_doppler_consistency(
-                xyz_b, v_adjusted, self._v_prev, None, fc, None
-            )
-            if doppler_keep.sum() < 3:
-                return {'t': t_frame, 'valid': False, 'n_total': int(doppler_keep.sum()), 'reason': 'doppler_gate'}
-            xyz_b, v_adjusted, ranges, u_body = xyz_b[doppler_keep], v_adjusted[doppler_keep], ranges[doppler_keep], u_body[doppler_keep]
-            xyz_radar_native = xyz_radar_native[doppler_keep]
-            
+        # (Removed gate_doppler_consistency pre-filter to prevent deadlock on takeoff)
         n_remaining = xyz_b.shape[0]
 
         # Determine airborne state from the IMU listener (safe default: False)
@@ -939,14 +930,12 @@ def run_udp_loop(args):
 
                 cxx, cyy, czz = cov[0,0], cov[1,1], cov[2,2]
                 max_sigma = math.sqrt(max(cxx, cyy, czz))
-
-                if result.get('vz_prior_used', False):
-                    czz = 100.0  # Strip the prior from published covariance
-                    
-                max_sigma = math.sqrt(max(cxx, cyy, czz))
                 if max_sigma > rio.max_sigma_v_mps:
                     print(f"t={t_frame:.3f}  RIO frame rejected (max_sigma={max_sigma:.2f} > {rio.max_sigma_v_mps})")
                     continue
+
+                if result.get('vz_prior_used', False):
+                    czz = 100.0  # Strip the prior from published covariance
                 
                 pkt = FORWARD_PKT.pack(
                     t_frame, vx, vy, vz, result['n_inliers'],
