@@ -51,6 +51,7 @@ from nav_node import body_to_nav_rotation
 # Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes).
 RIO_PKT = struct.Struct('<dfffIfffIBf')  # t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 ALT_PKT = struct.Struct('<f')      # range_m -- from your altimeter radar's parser
+POSE_PKT_HDR = struct.Struct('<dId') # t, n_map_pts, fwd_range (20 bytes)
 
 
 def open_link(args):
@@ -92,6 +93,17 @@ def send_vision_speed_ardupilot(conn, t_usec, vx, vy, vz, cov_v_diag=None, cov_9
         cov_9 = [cov_v_diag[0], 0, 0, 0, cov_v_diag[1], 0, 0, 0, cov_v_diag[2]]
     conn.mav.vision_speed_estimate_send(t_usec, vx, vy, vz, cov_9, reset_counter=0)
 
+def send_vision_position_estimate_ardupilot(conn, t_usec, x, y, z, roll, pitch, yaw, cov=None):
+    if cov is None:
+        # Default 6x6 upper right covariance (21 elements)
+        cov = [0.05, 0, 0, 0, 0, 0, 
+               0.05, 0, 0, 0, 0, 
+               0.05, 0, 0, 0, 
+               0.01, 0, 0, 
+               0.01, 0, 
+               0.01]
+    conn.mav.vision_position_estimate_send(t_usec, x, y, z, roll, pitch, yaw, cov, reset_counter=0)
+
 
 def send_distance_sensor(conn, t_boot_ms, range_m, min_range_m=0.2, max_range_m=200.0):
     """Linpowave U200A: 0.2-200 m, +/-0.2 m, 20 Hz. These limits MUST match
@@ -120,7 +132,12 @@ def run(args):
         alt_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         alt_sock.bind((args.alt_ip, args.alt_port))
 
-    socks = [rio_sock] + ([alt_sock] if alt_sock else [])
+    pose_sock = None
+    if getattr(args, 'pose_port', 0):
+        pose_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        pose_sock.bind((args.rio_ip, args.pose_port))
+
+    socks = [rio_sock] + ([alt_sock] if alt_sock else []) + ([pose_sock] if pose_sock else [])
     for s in socks:
         s.setblocking(False)
 
@@ -129,6 +146,12 @@ def run(args):
         conn.mav.request_data_stream_send(
             conn.target_system, conn.target_component,
             mavutil.mavlink.MAV_DATA_STREAM_EXTRA1, 50, 1)
+        
+        print(f"[mavlink_bridge] requesting SYSTEM_TIME stream at 1Hz")
+        conn.mav.command_long_send(
+            conn.target_system, conn.target_component,
+            mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
+            2, 1000000, 0, 0, 0, 0, 0) # Message ID 2 is SYSTEM_TIME
 
     t0_wall = time.monotonic()
     t_offset_us = None
@@ -171,10 +194,26 @@ def run(args):
                     
                     send_vision_speed_ardupilot(conn, t_usec, v_ned[0], v_ned[1], v_ned[2], cov_9=cov_9)
                 else:
-                    # Cannot safely send without attitude to rotate it
-                    pass
+                    conn.mav.system_time_send(t_usec, int(time.time() * 1000))
+                    
+        if pose_sock and pose_sock in ready:
+            data, _ = pose_sock.recvfrom(2048)
+            if len(data) >= POSE_PKT_HDR.size + 128:
+                t_slam, n_map, fwd_range = POSE_PKT_HDR.unpack_from(data, 0)
+                T = np.frombuffer(data, dtype=np.float64, count=16, 
+                                  offset=POSE_PKT_HDR.size).reshape(4, 4)
+                # T is the transformation matrix from body to NED
+                pos = T[:3, 3]
+                # Assuming roll, pitch, yaw from attitude or extracting from T
+                # For simplicity, if we have attitude:
+                if last_attitude and t_offset_us is not None:
+                    t_usec = int(t_slam * 1e6) + t_offset_us
+                    send_vision_position_estimate_ardupilot(
+                        conn, t_usec, pos[0], pos[1], pos[2],
+                        last_attitude.roll, last_attitude.pitch, last_attitude.yaw
+                    )
 
-        if alt_sock in ready:
+        if alt_sock and alt_sock in ready:
             adata, _ = alt_sock.recvfrom(64)
             (range_m,) = ALT_PKT.unpack(adata[:4])
             t_boot_ms = int(time.monotonic() * 1000 + (t_offset_us or 0) // 1000)
@@ -225,6 +264,7 @@ if __name__ == '__main__':
     p.add_argument('--compid', type=int, default=197)  # MAV_COMP_ID_ODOMETRY-ish range
     p.add_argument('--rio-ip', default='127.0.0.1')
     p.add_argument('--rio-port', type=int, default=5006)
+    p.add_argument('--pose-port', type=int, default=0)
     p.add_argument('--alt-ip', default='127.0.0.1')
     p.add_argument('--alt-port', type=int, default=0)
     args = p.parse_args()

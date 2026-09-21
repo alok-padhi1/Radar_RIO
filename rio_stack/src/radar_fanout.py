@@ -216,7 +216,16 @@ class SerialReaderThread(threading.Thread):
         frame_length -= 16
         if frame_length < 0 or frame_length > 1 << 20:
             return None  # corrupt length field, resync on next call
-        frame_data += bytearray(ser.read(frame_length))
+        payload = bytearray(b'')
+        while len(payload) < frame_length:
+            if self._stop.is_set():
+                return None
+            chunk = ser.read(frame_length - len(payload))
+            if chunk:
+                payload += bytearray(chunk)
+            else:
+                return None # Timeout or error
+        frame_data += payload
         return frame_data
 
     @staticmethod

@@ -110,7 +110,7 @@ def gate_doppler_consistency(xyz: np.ndarray, v_radial: np.ndarray,
     r = np.linalg.norm(xyz, axis=1)
     r = np.clip(r, 1e-3, None)
     u = xyz / r[:, None]
-    if v_body_hint is None:
+    if v_body_hint is None or np.linalg.norm(v_body_hint) < 0.1:
         return np.ones(len(xyz), dtype=bool)
         
     v_hint = v_body_hint
@@ -138,7 +138,7 @@ class PersistenceTracker:
         self.cfg = cfg
         self._history: list[np.ndarray] = []  # list of (N_k, 3) past frames, newest last
 
-    def filter(self, xyz: np.ndarray, v_body: np.ndarray = None, dt: float = 0.0) -> np.ndarray:
+    def filter(self, xyz: np.ndarray, v_body: np.ndarray = None, dt: float = 0.0, omega: np.ndarray = None) -> np.ndarray:
         cfg = self.cfg
         if not self._history:
             self._history.append(xyz)
@@ -151,7 +151,11 @@ class PersistenceTracker:
         # so objects in the past frames appear to have moved backwards by -(v_body * dt)
         if v_body is not None and dt > 0:
             shift = -v_body * dt
-            self._history = [past + shift for past in self._history]
+            if omega is not None:
+                # Rotate points to compensate for yawing/pitching
+                self._history = [past - np.cross(omega, past) * dt + shift for past in self._history]
+            else:
+                self._history = [past + shift for past in self._history]
 
         recent = self._history[-cfg.persistence_window:]
         hits = np.zeros(len(xyz), dtype=int)
@@ -230,7 +234,7 @@ def preprocess_frame(xyz_body: np.ndarray, v_radial: np.ndarray,
     xyz2 = xyz1[keep]
     n_after_doppler = len(xyz2)
 
-    keep = tracker.filter(xyz2, v_body=v_body_hint, dt=dt)
+    keep = tracker.filter(xyz2, v_body=v_body_hint, dt=dt, omega=omega_hint)
     xyz3 = xyz2[keep]
     n_after_persistence = len(xyz3)
 

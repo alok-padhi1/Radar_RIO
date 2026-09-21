@@ -158,9 +158,10 @@ class AltimeterListener:
     """Background thread that listens to Altimeter UDP packets and computes
     vertical velocity (vz_ned) via smoothed finite differencing."""
 
-    def __init__(self, port: int, ip: str = '127.0.0.1'):
+    def __init__(self, port: int, ip: str = '127.0.0.1', imu_listener=None):
         self._port = port
         self._ip = ip
+        self._imu_listener = imu_listener
         self._lock = threading.Lock()
         
         self._t_last = 0.0
@@ -189,17 +190,25 @@ class AltimeterListener:
                     t_now = time.monotonic()
                     
                     with self._lock:
+                        import math
+                        roll, pitch = 0.0, 0.0
+                        if self._imu_listener is not None:
+                            att = self._imu_listener.get_attitude()
+                            if att is not None:
+                                roll, pitch, _ = att
+                        
+                        true_h = alt_m * math.cos(roll) * math.cos(pitch)
+
                         if self._t_last > 0.0:
                             dt = t_now - self._t_last
                             if dt > 0.01:
-                                # NED Z is down, so if alt increases, drone moved up (negative Z velocity).
-                                # vz = - (alt_new - alt_old) / dt
-                                vz_raw = -(alt_m - self._alt_last) / dt
+                                # NED Z is down, so if true_h increases, drone moved up (negative Z velocity).
+                                vz_raw = -(true_h - self._alt_last) / dt
                                 # Simple EMA low-pass filter to smooth the derivative
                                 alpha = 0.3
                                 self._vz = alpha * vz_raw + (1.0 - alpha) * self._vz
                         
-                        self._alt_last = alt_m
+                        self._alt_last = true_h
                         self._t_last = t_now
             except socket.timeout:
                 continue
@@ -1063,7 +1072,7 @@ def run_udp_loop(args):
     # ── Altimeter listener (optional) ──
     alt_listener = None
     if args.alt_port and args.alt_port > 0:
-        alt_listener = AltimeterListener(port=args.alt_port, ip=args.listen_ip)
+        alt_listener = AltimeterListener(port=args.alt_port, ip=args.listen_ip, imu_listener=imu_listener)
         alt_listener.start()
 
     if getattr(args, 'force_2d', False) and 10.0 < args.theta_tilt_deg < 80.0:

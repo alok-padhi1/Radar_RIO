@@ -399,14 +399,9 @@ class Autopilot:
         )
 
     def request_rtl(self):
-        mode = 'RTL' if self.platform == 'ardupilot' else 'AUTO.RTL'
-        try:
-            self.set_mode(mode)
-        except RuntimeError:
-            self.conn.mav.command_long_send(
-                self.conn.target_system, self.conn.target_component,
-                mavutil.mavlink.MAV_CMD_NAV_RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, 0)
-
+        # Native RTL will fail in GPS-denied ArduPilot/PX4. Trigger internal RTH.
+        self._enter(NavState.RTH)
+        
     def request_land(self):
         self.conn.mav.command_long_send(
             self.conn.target_system, self.conn.target_component,
@@ -809,7 +804,8 @@ class NavNode:
                 self.ap.send_velocity_setpoint(0, 0, 0)
                 return
             wp = self.waypoints[self.wp_index]
-            target = np.array([wp.x, wp.y, wp.z])
+            # Z is negated because waypoint Z is UP, but target array is NED (Z-Down)
+            target = np.array([wp.x, wp.y, -wp.z])
             dist = np.linalg.norm(target - pos)
             if dist < self.cfg.waypoint_accept_radius_m:
                 print(f"[nav_node] waypoint {self.wp_index} reached (dist={dist:.2f}m)")

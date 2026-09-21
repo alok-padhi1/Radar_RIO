@@ -531,7 +531,15 @@ class RadarSLAM:
 
         if len(self.map_cloud.points) < 8:
             # Bootstrap: first keyframe seeds the map at the current pose.
-            if self.trust_imu_yaw and self.last_attitude is not None:
+            if self.trust_imu_yaw:
+                if self.last_attitude is None:
+                    return {
+                        'valid': False, 'reason': 'waiting_for_imu_attitude_to_bootstrap',
+                        'n_raw': pre.n_raw, 'n_after_range': pre.n_after_range,
+                        'n_after_doppler': pre.n_after_doppler,
+                        'n_after_persistence': pre.n_after_persistence,
+                        'n_after_sor': pre.n_after_sor,
+                    }
                 yaw_imu = self.last_attitude[2]
                 cy, sy = math.cos(yaw_imu), math.sin(yaw_imu)
                 self.T_world[:3, :3] = np.array([

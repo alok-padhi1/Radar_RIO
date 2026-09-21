@@ -101,6 +101,8 @@ def build_children(args) -> list[Child]:
 
     # SLAM pose destination ports (comma-separated, parsed by slam_node.py)
     slam_pose_ports = ["5011"]   # default: nav_node / visualizer
+    if not args.no_mavlink:
+        slam_pose_ports.append("5015")  # 5015 -> mavlink_bridge
     if args.log_gps:
         slam_pose_ports.append("5014")  # 5014 -> gps_logger
 
@@ -165,7 +167,8 @@ def build_children(args) -> list[Child]:
                                 "--autopilot", args.platform,
                                 "--mavlink-dest", args.mavlink_dest,
                                 "--rio-port", "5007",
-                                "--alt-port", "5030"],
+                                "--pose-port", "5015",
+                                "--alt-port", "5034"],
             critical=False, start_delay_s=2.0))
     if args.enable_nav:
         if not args.waypoints:
@@ -213,7 +216,7 @@ def build_children(args) -> list[Child]:
             "altimeter", [py, os.path.join(os.path.dirname(os.path.abspath(__file__)), "altimeter_bridge.py"),
                           "--port", args.altimeter_serial,
                           "--baud", str(args.altimeter_baud),
-                          "--dest-ports", "5030,5031,5032,5033",
+                          "--dest-ports", "5030,5031,5032,5033,5034",
                           "--lever-z", str(args.altimeter_lever_z)],
             critical=True, start_delay_s=0.5))
             
