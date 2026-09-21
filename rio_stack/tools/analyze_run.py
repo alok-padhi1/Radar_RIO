@@ -1479,10 +1479,21 @@ def main():
 
         print(f"\n{BAR}")
         print(f"QUICK SUMMARY FOR {os.path.basename(fp)}:")
-        print(f"GPS Length: {gps_len:.2f} m")
-        print(f"RIO Length: {rio_len:.2f} m  (Error: {rio_err:.1f}%)")
-        print(f"SLAM XY:    {slam_xy:.2f} m  (Drift: {slam_xy_err:.1f}%)")
-        print(f"SLAM Z:     {slam_z:.2f} m  (Drift: {slam_z_err:.1f}%)")
+        # Use deadband-filtered path length as denominator to avoid GPS
+        # hover-jitter inflating the distance (coastline paradox).
+        gps_len = R.get('gps_path_int_db', R.get('gps_path_int', [float('nan')]))[0]
+        rio_len = R.get('rio_path_3d', float('nan'))
+        slam_xy = R.get('slam', {}).get('err_yaw', [float('nan')])[-1] if R.get('slam') else float('nan')
+        slam_z = R.get('slam', {}).get('err_z', [float('nan')])[-1] if R.get('slam') else float('nan')
+        
+        rio_err = (abs(rio_len - gps_len) / gps_len * 100) if gps_len > 0 else float('nan')
+        slam_xy_err = (slam_xy / gps_len * 100) if gps_len > 0 else float('nan')
+        slam_z_err = (abs(slam_z) / gps_len * 100) if gps_len > 0 else float('nan')
+        
+        print(f"GPS Length (deadband): {gps_len:.2f} m  (jitter-filtered)")
+        print(f"RIO Length:            {rio_len:.2f} m  (Error: {rio_err:.1f}%)")
+        print(f"SLAM XY:               {slam_xy:.2f} m  (Drift: {slam_xy_err:.1f}%)")
+        print(f"SLAM Z:                {slam_z:.2f} m  (Drift: {slam_z_err:.1f}%)")
         print(f"{BAR}\n")
         
         all_pass &= ok

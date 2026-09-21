@@ -686,21 +686,21 @@ def slam_alignment(run: Run, alt_ref=False, lag_s=0.0):
     raw_en = slam_en - slam_en[0] + gps_en[0]
     err_raw = np.linalg.norm(raw_en - gps_en, axis=1)
 
-    # Level 2: rotation about the first point only (no centroid freedom)
-    P = slam_en - slam_en[0]
-    Q = gps_en - gps_en[0]
-    H = P.T @ Q
-    U, S, Vt = np.linalg.svd(H)
-    R2 = Vt.T @ U.T
-    if np.linalg.det(R2) < 0:
-        Vt2 = Vt.copy(); Vt2[1, :] *= -1
-        R2 = Vt2.T @ U.T
-    yaw_off = math.degrees(math.atan2(R2[1, 0], R2[0, 0]))
-    yaw_en = (P @ R2.T) + gps_en[0]
+    # Level 2: yaw-aligned, origin-anchored.
+    # We use R3 (from full centroid-based Kabsch below) to extract the map
+    # heading, because centroid-centering decouples the yaw estimate from GPS
+    # start-point noise. A single GPS fix jitters ~0.3-0.5 m; over a 100 m
+    # flight that ~0.5 m lever arm introduces ~arctan(0.5/100) ≈ 0.29 deg of
+    # artificial twist if you pivot H = P.T @ Q around gps_en[0] directly.
+    # We compute R3 first, then apply it anchored at gps_en[0] (NOT using t3),
+    # so 100% of the translational drift is still visible.
+    P = slam_en - slam_en[0]           # origin-anchored SLAM trajectory
+    R3, t3, refl = _kabsch_2d(slam_en, gps_en)  # centroid-based — robust yaw
+    yaw_off = math.degrees(math.atan2(R3[1, 0], R3[0, 0]))
+    yaw_en = (P @ R3.T) + gps_en[0]   # origin-anchored: drift fully preserved
     err_yaw = np.linalg.norm(yaw_en - gps_en, axis=1)
 
     # Level 3: full Kabsch (rotation + centroid translation)
-    R3, t3, refl = _kabsch_2d(slam_en, gps_en)
     shape_en = slam_en @ R3.T + t3
     err_shape = np.linalg.norm(shape_en - gps_en, axis=1)
 
@@ -722,7 +722,12 @@ def slam_alignment(run: Run, alt_ref=False, lag_s=0.0):
     # Distance-normalised drift: error per metre of ground truth travelled.
     # Far more transferable than "m/s of drift", which depends entirely on how
     # fast you happened to fly.
-    gps_travel = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(gp, axis=0), axis=1))])
+    # Deadband: GPS jitters ~0.3 m while hovering (coastline paradox). Without
+    # a threshold, hover-jitter accumulates phantom distance in the denominator,
+    # making drift_per_m look artificially low. We strip steps < 0.3 m.
+    _DEADBAND_M = 0.3
+    gp_diffs = np.linalg.norm(np.diff(gp, axis=0), axis=1)
+    gps_travel = np.concatenate([[0.0], np.cumsum(np.where(gp_diffs > _DEADBAND_M, gp_diffs, 0.0))])
     drift_per_m = np.nan
     if gps_travel[-1] > 5.0:
         drift_per_m = float(np.polyfit(gps_travel, err_yaw, 1)[0])

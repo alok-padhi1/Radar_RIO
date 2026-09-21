@@ -222,6 +222,7 @@ class PoseState:
     have_pose: bool = False
     agl_m: float = float('nan')          # absolute AGL from U200A belly radar
     t_agl_local: float = 0.0
+    yaw_nav: float = 0.0                 # true heading in SLAM nav frame
 
 
 class PoseTracker:
@@ -288,6 +289,7 @@ class PoseTracker:
         self.pose.t_slam = t_slam
         self.pose.t_local = time.monotonic()
         self.pose.have_pose = True
+        self.pose.yaw_nav = slam_yaw
         self._last_rio_t = None
         self._update_breadcrumbs()
 
@@ -457,36 +459,46 @@ def velocity_toward(current: np.ndarray, target: np.ndarray, max_speed: float,
     return v
 
 
-def apply_obstacle_scaling(v_cmd_nav: np.ndarray, heading_nav: np.ndarray,
+def apply_obstacle_scaling(v_cmd_nav: np.ndarray, yaw_nav: float,
                             fwd_range_m: float, cfg: NavConfig) -> tuple[np.ndarray, bool]:
     """Scales down (or zeros) the forward component of the commanded
     velocity based on the SLAM node's forward-cone obstacle range. Returns
     (adjusted_velocity, hard_stop_triggered)."""
-    # slam_node.py sends -1.0 as the "nothing detected in the forward cone"
-    # sentinel (it cannot put +inf on the wire). Treat any non-positive value
-    # as "clear", NOT as a 1-metre obstacle.
     if (not math.isfinite(fwd_range_m)) or fwd_range_m <= 0.0:
         return v_cmd_nav, False
+
+    # Rotate nav velocity to body frame using SLAM yaw
+    cy, sy = math.cos(yaw_nav), math.sin(yaw_nav)
+    vx_b = v_cmd_nav[0] * cy + v_cmd_nav[1] * sy
+    vy_b = -v_cmd_nav[0] * sy + v_cmd_nav[1] * cy
+    vz_b = v_cmd_nav[2]
+
+    # Only brake if we are actually commanding forward motion
+    if vx_b <= 0:
+        return v_cmd_nav, False
+
     if fwd_range_m <= cfg.obstacle_hard_stop_m:
-        # Zero the along-heading component; allow lateral/vertical motion to
-        # continue so the vehicle can still be commanded to sidestep.
-        h_norm = np.linalg.norm(heading_nav)
-        if h_norm < 1e-6:
-            return np.zeros(3), True
-        h = heading_nav / h_norm
-        along = np.dot(v_cmd_nav, h)
-        if along > 0:
-            v_cmd_nav = v_cmd_nav - along * h
-        return v_cmd_nav, True
+        # Zero ONLY the forward component so we can sidestep/reverse
+        vx_b = 0.0
+        adjusted = np.array([
+            vx_b * cy - vy_b * sy,
+            vx_b * sy + vy_b * cy,
+            vz_b
+        ])
+        return adjusted, True
+
     if fwd_range_m <= cfg.obstacle_brake_start_m:
         scale = (fwd_range_m - cfg.obstacle_hard_stop_m) / (
             cfg.obstacle_brake_start_m - cfg.obstacle_hard_stop_m)
-        h_norm = np.linalg.norm(heading_nav)
-        if h_norm > 1e-6:
-            h = heading_nav / h_norm
-            along = np.dot(v_cmd_nav, h)
-            if along > 0:
-                v_cmd_nav = v_cmd_nav - along * (1.0 - scale) * h
+        vx_b *= scale
+
+        adjusted = np.array([
+            vx_b * cy - vy_b * sy,
+            vx_b * sy + vy_b * cy,
+            vz_b
+        ])
+        return adjusted, False
+
     return v_cmd_nav, False
 
 
@@ -658,6 +670,12 @@ class NavNode:
     def tick(self):
         self._drain_sockets()
         stale = self.tracker.stale_for()
+        
+        att = self.attitude_listener.get() if self.attitude_listener else None
+        if att and att.valid and self.tracker._yaw_offset_locked:
+            current_yaw_nav = att.yaw - self.tracker.yaw_offset
+        else:
+            current_yaw_nav = self.tracker.pose.yaw_nav
 
         if self.state == NavState.INIT:
             if self.tracker.pose.have_pose:
@@ -681,8 +699,7 @@ class NavNode:
         ekf_ok = True
         if self.attitude_listener:
             ekf_ok = self.attitude_listener.ekf_healthy()
-        flying = self.state in (NavState.HOLD, NavState.MISSION,
-                                NavState.OBSTACLE_STOP, NavState.RTH)
+        flying = self.state in (NavState.HOLD, NavState.MISSION, NavState.RTH)
 
         # RIO emergency hover: if high-rate velocity drops for 0.5s, we cannot
         # safely navigate between SLAM keyframes. Command a safety hover.
@@ -714,7 +731,7 @@ class NavNode:
             print(f"[nav_node] POSE STALE {stale:.1f}s -- starting breadcrumb RTH")
             self._begin_rth()
 
-        if self.state in (NavState.HOLD, NavState.MISSION, NavState.OBSTACLE_STOP):
+        if self.state in (NavState.HOLD, NavState.MISSION):
             if not self._check_geofence():
                 print("[nav_node] GEOFENCE BREACH -- descending in place")
                 self._enter(NavState.FAILSAFE_LAND)
@@ -762,7 +779,7 @@ class NavNode:
 
             v_target = velocity_toward(pos, target, self.cfg.max_speed_mps,
                                        self.cfg.max_climb_mps, self.cfg.max_descend_mps)
-            v_target, hard_stop = apply_obstacle_scaling(v_target, target - pos, fwd_range, self.cfg)
+            v_target, hard_stop = apply_obstacle_scaling(v_target, current_yaw_nav, fwd_range, self.cfg)
             v_cmd = self.slew.step(v_target, time.monotonic())
             
             if hard_stop:
@@ -814,11 +831,9 @@ class NavNode:
 
             v_target = velocity_toward(pos, target, self.cfg.max_speed_mps,
                                        self.cfg.max_climb_mps, self.cfg.max_descend_mps)
-            v_target, hard_stop = apply_obstacle_scaling(v_target, target - pos, fwd_range, self.cfg)
+            v_target, hard_stop = apply_obstacle_scaling(v_target, current_yaw_nav, fwd_range, self.cfg)
             v_cmd = self.slew.step(v_target, time.monotonic())
 
-            if hard_stop:
-                self._enter(NavState.OBSTACLE_STOP)
             yaw_off = self.tracker.yaw_offset
             cy, sy = math.cos(yaw_off), math.sin(yaw_off)
             v_cmd_ned = np.array([
@@ -829,12 +844,6 @@ class NavNode:
             self.ap.send_velocity_setpoint(*v_cmd_ned)
             return
 
-        if self.state == NavState.OBSTACLE_STOP:
-            self.ap.send_velocity_setpoint(0, 0, 0)
-            if fwd_range > self.cfg.obstacle_brake_start_m:
-                print("[nav_node] obstacle cleared, resuming mission")
-                self._enter(NavState.MISSION)
-            return
 
     def start_mission(self):
         if self.state != NavState.HOLD:
@@ -892,7 +901,7 @@ def parse_waypoints(spec: str) -> list[Waypoint]:
         if not chunk:
             continue
         x, y, z = (float(v) for v in chunk.split(','))
-        wps.append(Waypoint(x, y, -z))  # Z is UP in user input, but internal map frame is NED (Z-Down)
+        wps.append(Waypoint(x, y, z))  # Z is UP in user input; mission loop negates it to NED Z-Down
     return wps
 
 
