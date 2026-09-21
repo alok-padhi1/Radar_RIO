@@ -43,6 +43,7 @@ import argparse
 import socket
 import struct
 import time
+import math
 import numpy as np
 from pymavlink import mavutil
 
@@ -204,13 +205,16 @@ def run(args):
                                   offset=POSE_PKT_HDR.size).reshape(4, 4)
                 # T is the transformation matrix from body to NED
                 pos = T[:3, 3]
-                # Assuming roll, pitch, yaw from attitude or extracting from T
-                # For simplicity, if we have attitude:
+                
+                # Extract true SLAM yaw from the rotation matrix
+                slam_yaw = math.atan2(T[1, 0], T[0, 0])
+                
+                # Assuming roll, pitch from attitude (SLAM map is kept flat)
                 if last_attitude and t_offset_us is not None:
                     t_usec = int(t_slam * 1e6) + t_offset_us
                     send_vision_position_estimate_ardupilot(
                         conn, t_usec, pos[0], pos[1], pos[2],
-                        last_attitude.roll, last_attitude.pitch, last_attitude.yaw
+                        last_attitude.roll, last_attitude.pitch, slam_yaw
                     )
 
         if alt_sock and alt_sock in ready:
