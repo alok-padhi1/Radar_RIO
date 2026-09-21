@@ -423,7 +423,8 @@ def speed_integrated_path(gps_t, gps_enu, intervals=None, window_s=0.6,
         sp = np.where(sp > deadband_mps, sp, 0.0)
         sp2 = np.where(sp2 > deadband_mps, sp2, 0.0)
     w = _interval_weights(gps_t, intervals)
-    return float(np.trapz(sp * w, gps_t)), float(np.trapz(sp2 * w, gps_t))
+    _trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+    return float(_trapz(sp * w, x=gps_t)), float(_trapz(sp2 * w, x=gps_t))
 
 
 def _interval_weights(t, intervals):
