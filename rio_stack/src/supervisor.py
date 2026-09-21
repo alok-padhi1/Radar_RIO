@@ -132,6 +132,7 @@ def build_children(args) -> list[Child]:
                        "--sigma-el-deg", str(args.sigma_el_deg),
                        "--sigma-v", str(args.sigma_v),
                        "--max-range", str(args.max_range)]
+                       + (["--reject-ports", "5015"] if args.log_gps else [])
                        + (["--imu-port", "5020"] if args.imu_port else [])
                        + (["--alt-port", "5030"])
                        + (["--imu-level-points"] if args.imu_level_points else ["--no-imu-level-points"]),
@@ -231,7 +232,7 @@ def main():
     p.add_argument('--lever-x', type=float, required=True)
     p.add_argument('--lever-y', type=float, required=True)
     p.add_argument('--lever-z', type=float, required=True)
-    p.add_argument('--lateral-sign', type=float, default=1.0, choices=[1.0, -1.0],
+    p.add_argument('--lateral-sign', type=float, default=-1.0, choices=[1.0, -1.0],
                     help="passed to both rio and slam -- see doppler_rio.py's TiltMount "
                          "docstring for the bench validation procedure")
     p.add_argument('--slam-decimation', type=int, default=2)
@@ -283,11 +284,11 @@ def main():
                     help="Z-offset for altimeter in meters")
     p.add_argument('--pitch-offset-deg', type=float, default=0.0,
                     help="Pitch offset to calibrate out FC mounting bias (passed to imu_bridge)")
-    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=False,
+    p.add_argument('--trust-imu-yaw', action=argparse.BooleanOptionalAction, default=True,
                     help="Trust IMU/magnetometer yaw over raw GICP yaw. "
                          "Only enable with a properly calibrated compass away from metal. "
                          "Default OFF — GICP geometric yaw is more reliable in most setups.")
-    p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=False,
+    p.add_argument('--imu-level-points', action=argparse.BooleanOptionalAction, default=True,
                     help="Apply IMU pitch+roll leveling to SLAM point cloud coordinates. "
                          "Default OFF for handheld/uncalibrated AHRS mounts. "
                          "Enable only when AHRS trim is calibrated for the physical mount.")
