@@ -37,12 +37,30 @@ import math
 from dataclasses import dataclass, field
 import numpy as np
 
-from filters import FilterConfig
+# FIX R-9: this was `from filters import FilterConfig`, which is NEVER USED in
+# this module but which drags in filters.py -> open3d. open3d is a heavy,
+# GL/CUDA-linked import. If it fails to load on the Jetson (headless session,
+# driver mismatch, mismatched wheel) the flight-critical 20 Hz velocity node
+# dies at import time and publishes nothing at all, for a symbol it does not
+# use. The RIO path must not depend on the SLAM path's dependencies.
 
 UDP_HEADER = struct.Struct('<I')       # points_num, matches radar_streamer.py
 # Extended packet: t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
 FORWARD_PKT = struct.Struct('<dfffIfffIBf')  # 45 bytes
+# FIX (instrumentation): rejected frames are now published too, on their own
+# port. Previously doppler_rio transmitted ONLY accepted frames, so a post-flight
+# log could not distinguish "radar saw nothing" from "a gate rejected it" from
+# "the process crashed". On the 2026-09-20 flights 54% of the timeline was
+# simply absent, and the reason was unknowable after the fact.
+#   t_frame, n_total, n_inliers, reason_code, cond, extra
+REJECT_PKT = struct.Struct('<dIIBff')       # 25 bytes
+REJECT_REASONS = {
+    'too_few_raw_points': 1, 'too_few_after_range_gate': 2, 'ransac_reject': 3,
+    'wls_seed_failed': 4, 'irls_failed': 5, 'sigma_gate': 6, 'accel_gate': 7,
+    'max_sigma_publish_gate': 8,
+}
+REJECT_REASONS_INV = {v: k for k, v in REJECT_REASONS.items()}
 # IMU packet from imu_bridge.py (53 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned, t_vz, t_air
 IMU_PKT = struct.Struct('<dffffffBfdd')   # 53 bytes
 
@@ -244,10 +262,18 @@ class TiltMount:
         # (X_fwd, Y_lat, Z_down). This is the fix -- everything else about
         # the tilt math (Eq. 1-3 of the monograph) is unchanged, it was just
         # being fed the wrong input axes.
+        # FIX R-3: the Z row must be -1 REGARDLESS of lateral_sign.
+        # The old third row, [0, 0, -lateral_sign], kept det(P) = +1 by also
+        # flipping Z whenever the lateral axis was flipped. That is wrong: if
+        # the sensor's +X points LEFT, the native frame (X=left, Y=fwd, Z=up)
+        # is left-handed, and the correct map to right-handed body FRD is a
+        # REFLECTION with det = -1. With lateral_sign = -1 the old matrix sent
+        # a radar point 1 m ABOVE the sensor to body z = +1 m (i.e. below it),
+        # inverting vertical velocity. Verified numerically.
         self.P = np.array([
-            [0.0,              1.0, 0.0],   # X_B0 =  Y_R   (forward)
-            [self.lateral_sign, 0.0, 0.0],  # Y_B0 = ±X_R   (lateral/right)
-            [0.0,              0.0, -self.lateral_sign],  # Z_B0 = -+Z_R   (down)
+            [0.0,               1.0, 0.0],   # X_B0 =  Y_R   (forward)
+            [self.lateral_sign, 0.0, 0.0],   # Y_B0 = ±X_R   (lateral/right)
+            [0.0,               0.0, -1.0],  # Z_B0 = -Z_R   (down)  <- was -lateral_sign
         ])
         # R_R^B(theta_tilt) = R_tilt @ P: apply the axis permutation first,
         # then the mechanical pitch-down tilt, exactly as Eq.(2) expects.
@@ -298,17 +324,36 @@ class TiltMount:
         return points_radar_xyz @ self.R_static.T + self.lever_arm
 
 
+UDP_HEADER_V2 = struct.Struct('<4sdI')
+WIRE_MAGIC_V2 = b'RF02'
+
+
 def parse_udp_packet(data: bytes):
-    """Matches the wire format written by radar_streamer.py:
-       uint32 points_num, then points_num * (f32 x,y,z,v), radar frame."""
-    if len(data) < 4:
+    """Returns (points (N,4) in RADAR frame, t_parse or None).
+
+    FIX R-5: accepts both wire versions.
+      v2:  b'RF02' | float64 t_parse | uint32 n | n*(f32 x,y,z,v)
+      v1:  uint32 n | n*(f32 x,y,z,v)          (legacy, t_parse = None)
+    t_parse is the monotonic clock reading taken by radar_fanout's reader
+    thread the instant the frame finished parsing. Use it -- not
+    time.monotonic() at receive -- as the measurement epoch.
+    """
+    if len(data) >= UDP_HEADER_V2.size and data[:4] == WIRE_MAGIC_V2:
+        _magic, t_parse, points_num = UDP_HEADER_V2.unpack_from(data, 0)
+        off = UDP_HEADER_V2.size
+        if points_num == 0 or len(data) < off + points_num * 16:
+            return None
+        pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=off)
+        return pts.reshape(points_num, 4), float(t_parse)
+
+    if len(data) < UDP_HEADER.size:
         return None
     (points_num,) = UDP_HEADER.unpack_from(data, 0)
-    expected = 4 + points_num * 16
-    if points_num == 0 or len(data) < expected:
+    off = UDP_HEADER.size
+    if points_num == 0 or len(data) < off + points_num * 16:
         return None
-    pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=4)
-    return pts.reshape(points_num, 4)  # columns: x, y, z, v (radar frame)
+    pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=off)
+    return pts.reshape(points_num, 4), None
 
 
 def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
@@ -418,6 +463,19 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
                 v_k = np.array([v_k_2d[0], v_k_2d[1], 0.0])
             elif vz_prior is not None and vz_prior_axis is not None:
                 ax, ay, az = vz_prior_axis
+                # FIX R-8: az = cos(roll)cos(pitch); near gimbal lock this
+                # divides by ~0 and produces an enormous bogus vz. Fall back to
+                # the unconstrained 3-DOF solve instead of exploding.
+                if abs(az) < 0.30:      # > ~72 deg of combined tilt
+                    v_k, _, _, _ = np.linalg.lstsq(A_sub, b_sub, rcond=1e-2)
+                    if np.linalg.norm(v_k) > max_speed_mps:
+                        continue
+                    residual = np.abs(v_radial + u_body @ v_k)
+                    mask = residual < eps
+                    score = int(mask.sum())
+                    if score > best_score:
+                        best_score, best_mask = score, mask
+                    continue
                 A_2d = np.zeros((3, 2))
                 A_2d[:, 0] = A_sub[:, 0] - A_sub[:, 2] * (ax / az)
                 A_2d[:, 1] = A_sub[:, 1] - A_sub[:, 2] * (ay / az)
@@ -452,14 +510,60 @@ def doppler_ransac(u_body: np.ndarray, v_radial: np.ndarray,
     if best_score / n < min_inlier_ratio:
         return None
 
-    A_cond = -u_body[best_mask]
-    if force_2d or vz_prior is not None:
-        A_cond = A_cond[:, :2]
-    cond = float(np.linalg.cond(A_cond))
-    if cond > cond_reject_threshold:
+    # FIX R-2: the accepted frame must be judged on the FULL 3-column LOS
+    # matrix. The previous code sliced to A_cond[:, :2] whenever a vz prior was
+    # active -- and the vz prior is active on ~100% of flight frames -- so the
+    # reported condition number described a matrix that structurally CANNOT
+    # express the Vx/Vz null direction it was supposed to guard. Measured on a
+    # narrow high-altitude cone: true cond(A)=44, logged 2-col cond=25.5,
+    # threshold 50 -> accepted. Both numbers are now computed; the 3-D one
+    # gates, and the 2-D one is returned for continuity of the log field.
+    A_full = -u_body[best_mask]
+    cond_3d = float(np.linalg.cond(A_full))
+    cond_2d = float(np.linalg.cond(A_full[:, :2]))
+    # force_2d genuinely solves a 2-DOF problem, so gate it on the 2-col number.
+    cond_gate = cond_2d if force_2d else cond_3d
+    if cond_gate > cond_reject_threshold:
         return None
 
-    return best_mask, False, cond
+    # Report the number that actually gated. A vz prior CONSTRAINS the third
+    # axis, it does not make it observable from radar, so cond_3d remains the
+    # honest description of what the geometry could see.
+    return best_mask, False, cond_gate
+
+
+def _safe_covariance(ATA: np.ndarray, huber_inflate: float = 1.0) -> np.ndarray:
+    """Invert A^T W A into a covariance WITHOUT truncating weak directions.
+
+    FIX R-1 / R-7.  Two separate defects are addressed here:
+
+    R-1  np.linalg.pinv(ATA, rcond=1e-2) discards every singular value below
+         1% of the largest and returns 0 for that direction's variance. The
+         weakly-observed axis -- the one the posterior-sigma gate exists to
+         catch -- therefore comes back as sigma = 0 instead of sigma = large.
+         We use a true inverse, and on genuine singularity we return a HUGE
+         variance (not zero) so downstream gates reject the frame.
+
+    R-7  After IRLS/Huber reweighting, (A^T W A)^-1 is no longer the estimator
+         covariance; the textbook correction is a sandwich estimator. Pass
+         huber_inflate > 1.0 (the ratio of total weight to effective weight)
+         to inflate conservatively rather than under-report.
+    """
+    n = ATA.shape[0]
+    try:
+        # Symmetrise for numerical safety, then eigendecompose.
+        M = 0.5 * (ATA + ATA.T)
+        w, V = np.linalg.eigh(M)
+        floor = max(float(w.max()), 1e-12) * 1e-12
+        w_safe = np.clip(w, floor, None)
+        cov = (V * (1.0 / w_safe)) @ V.T
+        cov = 0.5 * (cov + cov.T)
+        # Any direction that was effectively unobserved now carries an enormous
+        # variance, which is the truth and which the sigma gate can act on.
+        cov = np.clip(cov, -1e6, 1e6)
+        return cov * float(huber_inflate)
+    except np.linalg.LinAlgError:
+        return np.eye(n) * 1e6
 
 
 def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0,
@@ -484,7 +588,14 @@ def weighted_refit(u_body, v_radial, ranges, mask, max_speed_mps: float = 25.0,
         else:
             v_body = v_res[:3]
         ATA = A_w.T @ A_w
-        cov_sub = np.linalg.pinv(ATA, rcond=1e-2)
+        # FIX R-1: pinv(..., rcond=1e-2) ZEROES the inverse along any direction
+        # whose singular value is below 1% of the max -- i.e. exactly the
+        # weakly-observed direction. That makes cov *smallest* where the solve
+        # is *worst*, which silently defeats the posterior-sigma gate below and
+        # tells the autopilot EKF to trust a hallucinated velocity absolutely.
+        # Measured on a narrow-cone geometry: true sigma [0.31 0.38 0.37] m/s,
+        # pinv(rcond=1e-2) sigma [0.009 0.000 0.007] m/s.
+        cov_sub = _safe_covariance(ATA)
         if force_2d:
             cov = np.zeros((3, 3))
             cov[:2, :2] = cov_sub
@@ -579,6 +690,15 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
         w_huber[far] = huber_delta_mps / np.clip(abs_r[far], 1e-6, None)
         w = w_meas * w_huber
         sqrt_w = np.sqrt(np.clip(w, 0.0, None))
+        # FIX R-7: robust (Huber) reweighting invalidates (A^T W A)^-1 as the
+        # estimator covariance. A proper sandwich estimator needs the score
+        # outer product; as a conservative stand-in we inflate by the ratio of
+        # nominal to effective weight, which is >= 1 and grows as more points
+        # get down-weighted. Under-reporting variance here is the failure mode
+        # that matters, so err on the side of inflation.
+        _w_sum = float(np.sum(w_meas))
+        _w_eff = float(np.sum(w))
+        huber_inflate = _w_sum / max(_w_eff, 1e-12)
 
         A_w = A_full * sqrt_w[:, None]
         b_w = b_full * sqrt_w
@@ -592,7 +712,7 @@ def irls_refit(u_body, v_radial, xyz_radar, ranges, R_used, v_seed,
             else:
                 v_new = v_new_sub[:3]
             ATA = A_w.T @ A_w
-            cov_sub = np.linalg.pinv(ATA, rcond=1e-2)
+            cov_sub = _safe_covariance(ATA, huber_inflate)   # FIX R-1/R-7
             if force_2d:
                 cov = np.zeros((3, 3))
                 cov[:2, :2] = cov_sub
@@ -703,7 +823,8 @@ class DopplerRIO:
     def process_frame(self, points_radar: np.ndarray, t_frame: float):
         """points_radar: (N,4) [x,y,z,v] in RADAR frame. Returns a result dict."""
         if points_radar.shape[0] < 3:
-            return {'t': t_frame, 'valid': False, 'n_total': int(points_radar.shape[0])}
+            return {'t': t_frame, 'valid': False, 'n_total': int(points_radar.shape[0]),
+                    'reason': 'too_few_raw_points'}
 
         attitude = None
         if self.imu_listener is not None:
@@ -717,7 +838,8 @@ class DopplerRIO:
 
         keep = (ranges > max(self.min_range, self.leakage_radius_m)) & (ranges < self.max_range)
         if keep.sum() < 3:
-            return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum())}
+            return {'t': t_frame, 'valid': False, 'n_total': int(keep.sum()),
+                    'reason': 'too_few_after_range_gate'}
         xyz_b, v_meas, ranges = xyz_b[keep], v_meas[keep], ranges[keep]
         xyz_radar_native = xyz_radar_native[keep]
         u_body = xyz_b / ranges[:, None]
@@ -775,6 +897,15 @@ class DopplerRIO:
             if not self.imu_level_points and attitude is not None:
                 R_level = self.mount.get_R(attitude)
                 vz_prior_axis = R_level[2, :]  # 3rd row represents Earth Z axis in Body frame
+            elif not self.imu_level_points and attitude is None:
+                # FIX R-8: the prior is an EARTH-frame vertical velocity. Without
+                # attitude we cannot express the earth-down axis in body frame,
+                # and silently using body [0,0,1] injects a sin(pitch) error --
+                # ~10% at 25 deg of pitch, straight into Vx via the null
+                # direction. Drop the prior rather than mis-apply it.
+                logging.info("RIO: vz prior dropped -- no attitude to place the "
+                             "earth-vertical axis in body frame")
+                vz_prior = None
 
         ransac_result = doppler_ransac(
             u_body, v_adjusted, self.eps, self.iters, self.min_inlier_ratio,
@@ -792,7 +923,8 @@ class DopplerRIO:
         if ransac_result is None:
             # Sec. 1.3/3.4: expected, recoverable gap -- not a fault. Caller
             # (the EKF) should widen covariance / coast, not disarm.
-            return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
+            return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
+                    'reason': 'ransac_reject'}
         mask, is_static, cond = ransac_result
 
         if is_static:
@@ -809,7 +941,8 @@ class DopplerRIO:
                                         vz_prior=vz_prior,
                                         vz_prior_axis=vz_prior_axis)
             if v_seed is None:
-                return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
+                return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
+                        'reason': 'wls_seed_failed'}
 
             R_used = self.mount.current_rotation(attitude)
             v_body, cov = irls_refit(
@@ -822,7 +955,8 @@ class DopplerRIO:
                 vz_prior=vz_prior, vz_prior_axis=vz_prior_axis)
 
             if v_body is None:
-                return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
+                return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
+                        'reason': 'irls_failed'}
 
             # ── R2-L3: Posterior sigma gate ──
             # The covariance already computed by irls_refit reflects how well
@@ -834,7 +968,9 @@ class DopplerRIO:
                     f"RIO posterior sigma gate: sigma_v={sigma.round(3)} m/s "
                     f"exceeds {self.max_sigma_v_mps} -- null direction active, rejecting frame")
                 return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
-                        'reason': 'sigma_gate'}
+                        'reason': 'sigma_gate',
+                        'sigma': [float(x) for x in sigma],
+                        'n_inliers': int(mask.sum()), 'cond': cond}
             if v_body is None:
                 return {'t': t_frame, 'valid': False, 'n_total': n_remaining}
 
@@ -864,7 +1000,8 @@ class DopplerRIO:
                         f"(v_prev={self._v_prev.round(2)} → v={v_body.round(2)}, "
                         f"dt={_dt:.3f}s) — gap, not a fault")
                     return {'t': t_frame, 'valid': False, 'n_total': n_remaining,
-                            'reason': 'accel_gate'}
+                            'reason': 'accel_gate', 'implied_accel': implied_accel,
+                            'n_inliers': int(mask.sum())}
 
         # Deadband: snap near-zero solves to exactly zero. Below this speed
         # you're inside the sensor/estimator noise floor, not measuring real
@@ -969,7 +1106,19 @@ def run_udp_loop(args):
           f"[{args.lever_x},{args.lever_y},{args.lever_z}]")
 
     forward_dests = _parse_forward_destinations(args)
-    out_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) if forward_dests else None
+    reject_dests = []
+    if getattr(args, 'reject_ports', None):
+        for spec in str(args.reject_ports).split(','):
+            spec = spec.strip()
+            if not spec:
+                continue
+            if ':' in spec:
+                ip, port_s = spec.rsplit(':', 1)
+                reject_dests.append((ip, int(port_s)))
+            else:
+                reject_dests.append((args.forward_ip, int(spec)))
+    out_sock = (socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                if (forward_dests or reject_dests) else None)
     if forward_dests:
         print(f"[doppler_rio] forwarding RIO velocity to {len(forward_dests)} destination(s): "
               f"{', '.join(f'{ip}:{p}' for ip, p in forward_dests)}")
@@ -979,10 +1128,16 @@ def run_udp_loop(args):
             data, _ = sock.recvfrom(65535)
         except socket.timeout:
             continue
-        t_frame = time.monotonic()
-        pts = parse_udp_packet(data)
-        if pts is None:
+        t_recv = time.monotonic()
+        parsed = parse_udp_packet(data)
+        if parsed is None:
             continue
+        pts, t_parse = parsed
+        # FIX R-5: prefer the sensor-side parse epoch. Falling back to the
+        # receive time is what the old code always did; it folds the UDP hop
+        # and any scheduling delay into the measurement timestamp, which is
+        # exactly the quantity EKF2_EV_DELAY is meant to describe.
+        t_frame = t_parse if t_parse is not None else t_recv
         result = rio.process_frame(pts, t_frame)
         if result['valid']:
             vx, vy, vz = result['v_body']
@@ -1010,7 +1165,15 @@ def run_udp_loop(args):
                 cxx, cyy, czz = cov[0,0], cov[1,1], cov[2,2]
                 max_sigma = math.sqrt(max(cxx, cyy, czz))
                 if max_sigma > rio.max_sigma_v_mps:
-                    print(f"t={t_frame:.3f}  RIO frame rejected (max_sigma={max_sigma:.2f} > {rio.max_sigma_v_mps})")
+                    print(f"t={t_frame:.3f}  RIO frame rejected "
+                          f"(max_sigma={max_sigma:.2f} > {rio.max_sigma_v_mps})")
+                    if reject_dests:
+                        rpkt = REJECT_PKT.pack(
+                            t_frame, int(result['n_total']), int(result['n_inliers']),
+                            REJECT_REASONS['max_sigma_publish_gate'],
+                            float(result.get('cond', 0.0)), float(max_sigma))
+                        for dip, dport in reject_dests:
+                            out_sock.sendto(rpkt, (dip, dport))
                     continue
 
                 if result.get('vz_prior_used', False):
@@ -1024,8 +1187,23 @@ def run_udp_loop(args):
                 for dest_ip, dest_port in forward_dests:
                     out_sock.sendto(pkt, (dest_ip, dest_port))
         else:
-            print(f"t={t_frame:.3f}  RIO frame rejected (n={result['n_total']}) "
-                  f"-- gap, not a fault; downstream EKF should widen covariance")
+            reason = result.get('reason', 'unknown')
+            print(f"t={t_frame:.3f}  RIO frame rejected (n={result['n_total']}, "
+                  f"reason={reason}) -- gap, not a fault; downstream EKF should "
+                  f"widen covariance")
+            if out_sock and reject_dests:
+                extra = 0.0
+                if reason == 'sigma_gate':
+                    extra = float(max(result.get('sigma', [0.0])))
+                elif reason == 'accel_gate':
+                    extra = float(result.get('implied_accel', 0.0))
+                rpkt = REJECT_PKT.pack(
+                    t_frame, int(result.get('n_total', 0)),
+                    int(result.get('n_inliers', 0)),
+                    REJECT_REASONS.get(reason, 0),
+                    float(result.get('cond', 0.0)), extra)
+                for dip, dport in reject_dests:
+                    out_sock.sendto(rpkt, (dip, dport))
 
 
 def _selftest_jacobians():
@@ -1053,11 +1231,90 @@ def _selftest_jacobians():
     logging.info("[self_test] Stage 4C polar Jacobian PASS")
 
 
+def _selftest_axis_convention():
+    """FIX R-4: an INDEPENDENT check of the radar->body axis mapping.
+
+    The existing self_test() builds its synthetic cloud with mount.R_static and
+    then decodes it with mount.R_static. That round-trip cancels, so the test
+    passes for ANY P matrix, correct or not -- it could not have caught the
+    lateral_sign Z-flip (R-3). This test instead asserts the mapping against
+    physically stated facts about the frames, with no round-trip.
+
+    Ground rules (from Linpowave_visualizer_UART userguide_Points_float.pdf and
+    the FRD convention used throughout this project):
+      radar native : X = lateral, Y = forward, Z = UP
+      body         : X = forward, Y = right,   Z = DOWN
+    """
+    for sign in (1.0, -1.0):
+        m = TiltMount(theta_tilt_deg=0.0, lateral_sign=sign)   # no tilt: P only
+        P = m.R_static
+
+        fwd = P @ np.array([0.0, 1.0, 0.0])      # radar +Y (forward)
+        assert np.allclose(fwd, [1.0, 0.0, 0.0], atol=1e-9), \
+            f"radar forward must map to body +X, got {fwd} (lateral_sign={sign})"
+
+        up = P @ np.array([0.0, 0.0, 1.0])       # radar +Z (up)
+        assert np.allclose(up, [0.0, 0.0, -1.0], atol=1e-9), \
+            f"radar UP must map to body Z = -1 (down is +), got {up} " \
+            f"(lateral_sign={sign}) -- this is defect R-3"
+
+        lat = P @ np.array([1.0, 0.0, 0.0])      # radar +X
+        assert np.allclose(lat, [0.0, sign, 0.0], atol=1e-9), \
+            f"radar +X must map to body Y = {sign:+.0f}, got {lat}"
+
+    # Tilt sanity: a boresight return (radar +Y) under a pitch-DOWN mount must
+    # end up forward AND below, never above.
+    for tilt in (20.0, 40.0, 60.0):
+        m = TiltMount(theta_tilt_deg=tilt)
+        b = m.R_static @ np.array([0.0, 1.0, 0.0])
+        assert b[0] > 0, f"boresight lost forward component at {tilt} deg: {b}"
+        assert b[2] > 0, f"boresight must point DOWN (+Z) at {tilt} deg, got {b}"
+        assert abs(math.degrees(math.atan2(b[2], b[0])) - tilt) < 1e-6, \
+            f"boresight depression angle != tilt at {tilt} deg"
+
+    # Handedness: with a flipped lateral axis the map is a reflection, det = -1.
+    assert np.linalg.det(TiltMount(lateral_sign=1.0).P) > 0
+    assert np.linalg.det(TiltMount(lateral_sign=-1.0).P) < 0, \
+        "lateral_sign=-1 must yield a reflection; det=+1 means Z was flipped too (R-3)"
+
+    logging.info("[self_test] axis convention PASS (independent of R_static)")
+
+
+def _selftest_covariance_gate():
+    """FIX R-4: prove the posterior-sigma gate can actually fire.
+
+    Builds a deliberately narrow LOS cone -- the high-altitude geometry where
+    the Vx/Vz null direction is active -- and asserts that the covariance
+    returned reflects that, instead of collapsing to ~0 as pinv(rcond=1e-2) did.
+    """
+    rng = np.random.default_rng(7)
+    n = 20
+    az = np.radians(rng.uniform(-4, 4, n))
+    el = np.radians(40 + rng.uniform(-2.5, 2.5, n))
+    u = np.column_stack([np.cos(el)*np.cos(az), np.cos(el)*np.sin(az), np.sin(el)])
+    A = -u
+    w = np.ones(n) / (0.05 ** 2)
+    A_w = A * np.sqrt(w)[:, None]
+    cov = _safe_covariance(A_w.T @ A_w)
+    sigma = np.sqrt(np.clip(np.diag(cov), 0.0, None))
+    assert np.all(sigma > 0.05), (
+        f"narrow-cone sigma collapsed to {sigma} -- covariance truncation is "
+        f"back (defect R-1)")
+    assert np.all(np.isfinite(sigma))
+    # Singular input must yield HUGE variance, never zero.
+    cov_sing = _safe_covariance(np.zeros((3, 3)))
+    assert np.all(np.diag(cov_sing) > 1e3), \
+        "a singular normal matrix must report enormous variance, not zero"
+    logging.info(f"[self_test] covariance gate PASS (narrow-cone sigma={sigma.round(3)})")
+
+
 def self_test():
     """Synthetic validation: known ego-velocity + a ground-scan-shaped point
     cloud (forward-and-below, per Sec. 1.3/1.4) + injected outliers (movers /
     multipath) -> recovered velocity must match ground truth."""
     _selftest_jacobians()
+    _selftest_axis_convention()
+    _selftest_covariance_gate()
     rng = np.random.default_rng(42)
     mount = TiltMount(theta_tilt_deg=40.0, lever_arm=np.array([0.12, 0.0, 0.05]))
     rio = DopplerRIO(mount, eps=0.15, iters=80, min_inlier_ratio=0.3)
@@ -1146,6 +1403,10 @@ if __name__ == '__main__':
                     help='default IP for --forward-port and bare-port entries in --forward-ports')
     p.add_argument('--forward-port', type=int, default=0,
                     help='legacy single-destination forward; use --forward-ports for multi-consumer')
+    p.add_argument('--reject-ports', type=str, default=None,
+                    help='comma-separated UDP destinations for REJECTED-frame '
+                         'telemetry (e.g. "5015"). Without this, post-flight '
+                         'analysis cannot tell a dropout from a crash.')
     p.add_argument('--forward-ports', type=str, default=None,
                     help='comma-separated fan-out destinations, e.g. '
                          '"5006,5007,5008" or "127.0.0.1:5006,127.0.0.1:5007"')

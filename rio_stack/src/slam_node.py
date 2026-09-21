@@ -45,14 +45,29 @@ from filters import FilterConfig, PersistenceTracker, preprocess_frame
 
 UDP_HEADER = struct.Struct('<I')
 # Extended RIO packet — must match doppler_rio.py FORWARD_PKT exactly (45 bytes).
-# t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond (46 bytes)
+# t, vx, vy, vz, n_inliers, cxx, cyy, czz, n_total, flags, cond (45 bytes)
 # flags bit0=is_static, bit1=airborne, bit2=vz_prior_used, bit3=accel_gate_armed
-RIO_PKT = struct.Struct('<dfffIfffIBf')   # 46 bytes
+RIO_PKT = struct.Struct('<dfffIfffIBf')   # 45 bytes (comment said 46)
 # IMU packet from imu_bridge.py: t_mono, roll, pitch, yaw, omega_x, omega_y, omega_z
 # IMU packet from imu_bridge.py (37 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned
 IMU_PKT = struct.Struct('<dffffffBfdd')  # 53 bytes
 # t, n_map_points, fwd_obstacle_range_m ; followed by 16 float64 (4x4 row-major T)
 POSE_PKT_HDR = struct.Struct('<dId')
+# FIX (instrumentation): slam_node computes fitness, inlier_rmse, n_corr and
+# n_observable_axes and then throws them all away -- the pose packet carried
+# only (t, n_map, fwd_range). Post-flight, a confident pose and a garbage pose
+# are indistinguishable. v2 appends them, and adds a separate reject packet so
+# the 124 s of silence seen on 2026-09-20 has a reason attached.
+#   magic | t | n_map | fwd | n_corr | fitness | rmse | n_obs_axes | n_raw | n_final
+POSE_PKT_HDR_V2 = struct.Struct('<4sdIdIffBII')
+POSE_MAGIC_V2 = b'SP02'
+#   t, reason_code, n_raw, n_after_range, n_after_doppler, n_after_persist,
+#   n_after_sor, n_corr
+REJECT_PKT = struct.Struct('<dBIIIIII')
+SLAM_REJECT_REASONS = {
+    'too_few_points': 1, 'too_sparse_after_filtering': 2,
+    'insufficient_correspondences': 3, 'gicp_exception': 4,
+}
 
 
 # ---------------------------------------------------------------- geometry
@@ -77,10 +92,13 @@ class TiltMount:
         # Native U300 radar frame (X=lateral, Y=forward, Z=up) -> pre-tilt
         # body-aligned (X=forward, Y=lateral, Z=down). Confirmed against
         # Linpowave_visualizer_UART userguide_Points_float.pdf.
+        # FIX R-3: Z row is -1 regardless of lateral_sign. See the long comment
+        # in doppler_rio.py's TiltMount. MUST stay identical to doppler_rio.py
+        # or RIO and SLAM disagree about which way is down.
         self.P = np.array([
-            [0.0,              1.0, 0.0],
+            [0.0,               1.0, 0.0],
             [self.lateral_sign, 0.0, 0.0],
-            [0.0,              0.0, -self.lateral_sign],
+            [0.0,               0.0, -1.0],   # was -lateral_sign
         ])
         self.R_static = R_tilt @ self.P
 
@@ -127,15 +145,36 @@ class TiltMount:
         return xyz_radar @ self.R_static.T + self.lever_arm  # Eq.(2)
 
 
-def parse_udp_packet(data: bytes) -> np.ndarray | None:
+UDP_HEADER_V2 = struct.Struct('<4sdI')
+WIRE_MAGIC_V2 = b'RF02'
+
+
+def parse_udp_packet(data: bytes):
+    """Returns (points (N,4) in RADAR frame, t_parse or None).
+
+    FIX R-5: accepts both wire versions.
+      v2:  b'RF02' | float64 t_parse | uint32 n | n*(f32 x,y,z,v)
+      v1:  uint32 n | n*(f32 x,y,z,v)          (legacy, t_parse = None)
+    t_parse is the monotonic clock reading taken by radar_fanout's reader
+    thread the instant the frame finished parsing. Use it -- not
+    time.monotonic() at receive -- as the measurement epoch.
+    """
+    if len(data) >= UDP_HEADER_V2.size and data[:4] == WIRE_MAGIC_V2:
+        _magic, t_parse, points_num = UDP_HEADER_V2.unpack_from(data, 0)
+        off = UDP_HEADER_V2.size
+        if points_num == 0 or len(data) < off + points_num * 16:
+            return None
+        pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=off)
+        return pts.reshape(points_num, 4), float(t_parse)
+
     if len(data) < UDP_HEADER.size:
         return None
     (points_num,) = UDP_HEADER.unpack_from(data, 0)
-    expected_size = UDP_HEADER.size + points_num * 16
-    if len(data) != expected_size:
+    off = UDP_HEADER.size
+    if points_num == 0 or len(data) < off + points_num * 16:
         return None
-    pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=UDP_HEADER.size)
-    return pts.reshape(-1, 4)
+    pts = np.frombuffer(data, dtype='<f4', count=points_num * 4, offset=off)
+    return pts.reshape(points_num, 4), None
 
 
 class UdpReceiver(threading.Thread):
@@ -241,7 +280,9 @@ class RadarSLAM:
                  filter_cfg: FilterConfig | None = None,
                  plane_threshold: float = 0.6,
                  trust_imu_yaw: bool = True,
-                 lambda_min_observable: float = 3.0,
+                 lambda_min_observable: float = 10.0,   # FIX: was 3.0 here but 10.0 in argparse --
+                 #       two different defaults for the same knob depending on entry point
+
                  observable_ratio: float = 0.05,
                  imu_level_points: bool = False):
         self.mount = mount
@@ -322,6 +363,14 @@ class RadarSLAM:
         # height reference in the system; without it Z is a free-running
         # integrator. Map frame is Z-DOWN, so world Z = -(AGL) + takeoff offset.
         if agl_m is not None and math.isfinite(agl_m):
+            # FIX R-6: altimeter_bridge.py publishes the RAW SLANT range along
+            # body -Z. Consuming it as a vertical height is only correct at zero
+            # attitude. nav_node.on_altimeter() already applies this correction;
+            # slam_node did not, so the two nodes disagreed about height by up
+            # to 5.5 m on the 2026-09-20 flights. true_height = r*cos(roll)*cos(pitch)
+            if self.last_attitude is not None:
+                agl_m = agl_m * math.cos(self.last_attitude[0]) \
+                              * math.cos(self.last_attitude[1])
             if not hasattr(self, 'agl_at_bootstrap') or self.agl_at_bootstrap is None:
                 self.agl_at_bootstrap = agl_m
             z_meas = -(agl_m - self.agl_at_bootstrap)
@@ -455,8 +504,13 @@ class RadarSLAM:
         dt = (t - self.last_frame_t) if self.last_frame_t is not None else 0.0
         self.last_frame_t = t
 
+        v_L = self.last_v_body
+        if self.last_v_body is not None and self.imu_level_points and self.last_attitude is not None:
+            R_level = self.mount.get_R(self.last_attitude)
+            v_L = R_level @ self.last_v_body
+
         pre = preprocess_frame(xyz_body, v_radial, self.persistence_tracker,
-                                self.last_v_body, omega, self.filter_cfg, dt=dt)
+                                v_L, omega, self.filter_cfg, dt=dt)
         pcd = pre.pcd
         if len(pcd.points) < 8:
             return {
@@ -507,7 +561,7 @@ class RadarSLAM:
         if self.last_v_body is not None and len(self.pose_chain) >= 1:
             # Shift translation by RIO velocity (velocity is in local body frame, 
             # so we rotate it into the world frame before adding)
-            t_shift = self.T_world[:3, :3] @ (self.last_v_body * dt)
+            t_shift = self.T_world[:3, :3] @ (v_L * dt)
             T_pred[:3, 3] += t_shift
             
             if omega is not None:
@@ -705,13 +759,26 @@ def run(args):
           f"theta_tilt={args.theta_tilt_deg} deg, keyframe window={args.window_s}s")
 
     frame_i = 0
-    last_imu_t = 0.0
+    last_imu_t, last_alt_t = 0.0, 0.0
     try:
         while True:
             # Drain any pending RIO velocity updates (non-blocking, best-effort).
             if rio_receiver is not None:
                 for data in rio_receiver.drain():
-                    _t, vx, vy, vz, _n, _cxx, _cyy, _czz, _ntot, _flags, _cond = RIO_PKT.unpack(data)
+                    # FIX R-8: an unpack() on a short/long datagram raises
+                    # struct.error, which propagates out of the main loop and
+                    # kills the SLAM node outright. One stray packet on the
+                    # port (or a version skew in FORWARD_PKT) must not do that.
+                    if len(data) != RIO_PKT.size:
+                        logging.warning(f"[slam] ignoring RIO packet of "
+                                        f"{len(data)} B (expected {RIO_PKT.size})")
+                        continue
+                    try:
+                        (_t, vx, vy, vz, _n, _cxx, _cyy, _czz,
+                         _ntot, _flags, _cond) = RIO_PKT.unpack(data)
+                    except struct.error as e:
+                        logging.warning(f"[slam] malformed RIO packet: {e}")
+                        continue
                     slam.update_velocity(np.array([vx, vy, vz]), t_mono=_t)
 
             # Drain any pending IMU updates (non-blocking, latest-value grab).
@@ -728,6 +795,11 @@ def run(args):
                 for data in alt_receiver.drain():
                     if len(data) >= 4:
                         (latest_agl,) = struct.unpack('<f', data[:4])
+                        last_alt_t = time.monotonic()
+                        
+            if latest_agl is not None and time.monotonic() - last_alt_t > 0.25:
+                logging.warning("Altimeter staleness timeout (>0.25s) - dropping vertical prior")
+                latest_agl = None
                         
             if latest_attitude is not None and time.monotonic() - last_imu_t > 0.1:
                 latest_attitude = None
@@ -740,10 +812,16 @@ def run(args):
                 continue
             
             for data in pkts:
-                pts_radar = parse_udp_packet(data)
-                if pts_radar is None:
+                parsed = parse_udp_packet(data)
+                if parsed is None:
                     continue
-                t = time.monotonic()
+                pts_radar, t_parse = parsed
+                # FIX R-5: use the per-frame sensor epoch. Previously every
+                # packet in a drained burst got time.monotonic() microseconds
+                # apart, so KeyframeAccumulator saw dt ~= 0 between frames and
+                # the translational/rotational deskew was a no-op -- the single
+                # highest-leverage step for sparse-radar GICP, silently off.
+                t = t_parse if t_parse is not None else time.monotonic()
                 # Levelling is REQUIRED for flight: _gravity_correct() assumes
                 # the incoming cloud is already gravity-aligned, and RIO must
                 # operate in the SAME frame or the constant-velocity prediction
@@ -769,7 +847,12 @@ def run(args):
             else:
                 omega_leveled = latest_omega
 
-            merged_xyz, merged_v = accum.build(slam.last_v_body, omega_hint=omega_leveled)
+            v_hint_L = slam.last_v_body
+            if slam.last_v_body is not None and slam.imu_level_points and latest_attitude is not None:
+                R_level = mount.get_R(latest_attitude)
+                v_hint_L = R_level @ slam.last_v_body
+
+            merged_xyz, merged_v = accum.build(v_hint_L, omega_hint=omega_leveled)
             accum.clear()
             accum.t_last_kf = t
 
@@ -788,7 +871,17 @@ def run(args):
                 if pose_out is not None:
                     T = result['T'].astype('<f8').tobytes()
                     fwd_send = fwd if math.isfinite(fwd) else 1.0e6  # 1e6 = "nothing in cone"
-                    pkt = POSE_PKT_HDR.pack(t, n_map, fwd_send) + T
+                    if args.pose_wire_v2:
+                        pkt = POSE_PKT_HDR_V2.pack(
+                            POSE_MAGIC_V2, t, n_map, fwd_send,
+                            int(result.get('n_corr', 0)),
+                            float(result.get('fitness', 0.0)),
+                            float(result.get('rmse', 0.0)),
+                            int(result.get('n_observable_axes', 0)),
+                            int(result.get('n_raw', 0)),
+                            int(result.get('n_final', 0))) + T
+                    else:
+                        pkt = POSE_PKT_HDR.pack(t, n_map, fwd_send) + T
                     for pp in pose_ports:
                         pose_out.sendto(pkt, (args.pose_ip, pp))
             else:
@@ -801,6 +894,23 @@ def run(args):
                 elif 'n_corr' in result:
                     extra = f" (n_corr={result.get('n_corr')}/{args.min_correspondences} fitness={result.get('fitness', 0):.3f})"
                 logging.info(f"keyframe REJECTED: {result.get('reason')}{extra}")
+                if pose_out is not None and args.pose_wire_v2:
+                    reason = str(result.get('reason', ''))
+                    code = 0
+                    for k, v in SLAM_REJECT_REASONS.items():
+                        if reason.startswith(k):
+                            code = v
+                            break
+                    rpkt = REJECT_PKT.pack(
+                        t, code,
+                        int(result.get('n_raw', 0) or 0),
+                        int(result.get('n_after_range', 0) or 0),
+                        int(result.get('n_after_doppler', 0) or 0),
+                        int(result.get('n_after_persistence', 0) or 0),
+                        int(result.get('n_after_sor', 0) or 0),
+                        int(result.get('n_corr', 0) or 0))
+                    for pp in pose_ports:
+                        pose_out.sendto(rpkt, (args.pose_ip, pp))
     except KeyboardInterrupt:
         print("\n[slam_node] Interrupted by user.")
     finally:
@@ -868,6 +978,10 @@ def main():
     p.add_argument('--plane-threshold', type=float, default=0.6,
                     help="RANSAC plane distance threshold in meters for ground "
                          "segmentation; increase for flight altitude (e.g. 1.0 at 50m AGL)")
+    p.add_argument('--pose-wire-v2', action=argparse.BooleanOptionalAction, default=True,
+                    help="Emit the v2 pose packet (adds fitness/rmse/n_corr/"
+                         "observable-axes) and per-keyframe reject packets. "
+                         "Disable only for a consumer pinned to the old format.")
     p.add_argument('--save-pcd', default=None,
                     help="Save accumulated map as .pcd on exit. "
                          "Pass a filepath (e.g. map.pcd) or directory.")

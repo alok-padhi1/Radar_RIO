@@ -41,6 +41,22 @@ MAGIC_WORD = bytearray(b'\x02\x01\x04\x03\x06\x05\x08\x07')
 # Wire format handed to downstream workers / UDP consumers:
 #   uint32 points_num, then points_num * float32[4] (x, y, z, v), radar frame.
 UDP_HEADER = struct.Struct('<I')
+# FIX R-5: the frame's parse-time epoch now rides WITH the frame.
+# ARCHITECTURE.md Sec 1 says "Frames are timestamped once, at parse time, by
+# the reader thread, and that same timestamp rides with the frame into both
+# queues" -- but send() only ever transmitted (count, points). Both consumers
+# re-stamped at recvfrom(), so:
+#   * doppler_rio's t_frame was a receive time, not an epoch (measured 27 ms
+#     median offset, and unbounded whenever the consumer blocked);
+#   * slam_node stamped a whole drained burst within microseconds of each
+#     other, collapsing the keyframe deskew dt to ~0 so motion compensation
+#     did nothing at all;
+#   * EKF2_EV_DELAY / EK3_VIS_DELAY could not be derived from the log.
+# Wire format v2:  magic 'RF02' | float64 t_parse | uint32 n | n*(f32 x,y,z,v)
+# Legacy v1 packets (uint32 n | points) are still parsed by the consumers, so
+# a mixed-version deployment degrades rather than breaks.
+UDP_HEADER_V2 = struct.Struct('<4sdI')
+WIRE_MAGIC_V2 = b'RF02'
 
 
 class Frame:
@@ -237,8 +253,11 @@ def make_udp_forwarder(ip: str, port_spec):
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def send(points_num: int, payload: bytes):
-        data = UDP_HEADER.pack(points_num) + payload
+    def send(points_num: int, payload: bytes, t_parse: float = None):
+        if t_parse is None:
+            data = UDP_HEADER.pack(points_num) + payload          # legacy v1
+        else:
+            data = UDP_HEADER_V2.pack(WIRE_MAGIC_V2, t_parse, points_num) + payload
         for p in port_list:
             try:
                 sock.sendto(data, (ip, p))
@@ -267,7 +286,7 @@ class RIOForwardWorker(threading.Thread):
             except queue.Empty:
                 continue
             if self.send:
-                self.send(f.points.shape[0], f.points.astype('<f4').tobytes())
+                self.send(f.points.shape[0], f.points.astype('<f4').tobytes(), f.t)
 
 
 class SLAMForwardWorker(threading.Thread):
@@ -290,7 +309,7 @@ class SLAMForwardWorker(threading.Thread):
             except queue.Empty:
                 continue
             if self.send:
-                self.send(f.points.shape[0], f.points.astype('<f4').tobytes())
+                self.send(f.points.shape[0], f.points.astype('<f4').tobytes(), f.t)
 
 
 def main():

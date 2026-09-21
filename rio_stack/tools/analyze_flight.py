@@ -1467,24 +1467,6 @@ def main():
         run = load_run(fp)
         R = analyse(run, cfg)
         ok = print_report(run, R, cfg)
-        
-        gps_len = R.get('gps_path_int', [float('nan')])[0]
-        rio_len = R.get('rio_path_3d', float('nan'))
-        slam_xy = R.get('slam', {}).get('err_yaw', [float('nan')])[-1] if R.get('slam') else float('nan')
-        slam_z = R.get('slam', {}).get('err_z', [float('nan')])[-1] if R.get('slam') else float('nan')
-        
-        rio_err = (abs(rio_len - gps_len) / gps_len * 100) if gps_len > 0 else float('nan')
-        slam_xy_err = (slam_xy / gps_len * 100) if gps_len > 0 else float('nan')
-        slam_z_err = (abs(slam_z) / gps_len * 100) if gps_len > 0 else float('nan')
-
-        print(f"\n{BAR}")
-        print(f"QUICK SUMMARY FOR {os.path.basename(fp)}:")
-        print(f"GPS Length: {gps_len:.2f} m")
-        print(f"RIO Length: {rio_len:.2f} m  (Error: {rio_err:.1f}%)")
-        print(f"SLAM XY:    {slam_xy:.2f} m  (Drift: {slam_xy_err:.1f}%)")
-        print(f"SLAM Z:     {slam_z:.2f} m  (Drift: {slam_z_err:.1f}%)")
-        print(f"{BAR}\n")
-        
         all_pass &= ok
         if a.plot:
             out = a.plot if len(files) == 1 else \
@@ -1503,7 +1485,7 @@ def main():
                 if isinstance(o, (np.floating, np.integer)):
                     return o.item()
                 if isinstance(o, dict):
-                    return {k: _clean(v) for k, v in o.items() if not str(k).startswith('_')}
+                    return {k: _clean(v) for k, v in o.items() if not k.startswith('_')}
                 if isinstance(o, (list, tuple)):
                     return [_clean(x) for x in o]
                 if isinstance(o, float) and not math.isfinite(o):

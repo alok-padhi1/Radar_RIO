@@ -60,24 +60,54 @@ POSE_PKT_HDR = struct.Struct('<dId') # t_slam, n_map_pts, fwd_range (20 bytes)
 # IMU packet from imu_bridge.py (53 bytes): t, roll, pitch, yaw, wx, wy, wz, airborne, vz_ned, t_vz, t_airborne
 IMU_PKT = struct.Struct('<dffffffBfdd')  # 53 bytes
 ALT_PKT = struct.Struct('<f')        # altimeter range_m (4 bytes)
+# Rejected-frame telemetry from doppler_rio.py --reject-ports
+REJECT_PKT = struct.Struct('<dIIBff')    # t, n_total, n_inliers, reason, cond, extra
+REJECT_REASONS_INV = {
+    1: 'too_few_raw_points', 2: 'too_few_after_range_gate', 3: 'ransac_reject',
+    4: 'wls_seed_failed', 5: 'irls_failed', 6: 'sigma_gate', 7: 'accel_gate',
+    8: 'max_sigma_publish_gate',
+}
+# v2 pose packet from slam_node.py --pose-wire-v2
+POSE_PKT_HDR_V2 = struct.Struct('<4sdIdIffBII')
+POSE_MAGIC_V2 = b'SP02'
+SLAM_REJECT_PKT = struct.Struct('<dBIIIIII')
+SLAM_REJECT_INV = {1: 'too_few_points', 2: 'too_sparse_after_filtering',
+                   3: 'insufficient_correspondences', 4: 'gicp_exception'}
 
 
 # ─── Geodesy ─────────────────────────────────────────────────────────────────
 
+_WGS84_A  = 6378137.0
+_WGS84_E2 = 6.69437999014e-3
+
+
+def enu_scale_factors(lat0_deg):
+    """Metres per degree of latitude / longitude at lat0 on the WGS-84 ellipsoid."""
+    lat0 = math.radians(lat0_deg)
+    sn = math.sin(lat0)
+    denom = math.sqrt(1.0 - _WGS84_E2 * sn * sn)
+    M = _WGS84_A * (1.0 - _WGS84_E2) / denom ** 3     # meridional radius
+    N = _WGS84_A / denom                               # prime-vertical radius
+    return M * math.pi / 180.0, N * math.cos(lat0) * math.pi / 180.0
+
+
 def lla_to_enu(lat, lon, alt, lat0, lon0, alt0):
-    """Flat-earth LLA → ENU conversion.
+    """Local tangent-plane LLA -> ENU, WGS-84 scale factors evaluated at lat0.
 
-    Valid within ~10 km of origin, which is well beyond any walking or
-    vehicle test (typically < 500 m from start).  Error at 500 m from
-    origin is < 0.005 m -- negligible compared to GPS CEP (~2.5 m).
-
-    Returns (east_m, north_m, up_m) relative to the (lat0, lon0, alt0)
-    origin.
+    FIX: the previous version hard-coded 110_852.0 m per degree of latitude.
+    That is the correct value at exactly 30 deg N and nowhere else:
+        equator  110574 m/deg  -> the constant is +0.25 % high
+        45 deg   111132 m/deg  -> -0.25 % low
+        60 deg   111412 m/deg  -> -0.50 % low
+    A 0.5 % scale error on the "ground truth" reads out as a 0.5 % RIO
+    distance error that no amount of solver tuning will remove. The east
+    factor also omitted the prime-vertical correction (~0.08 % at 30 deg).
+    Flat-tangent-plane curvature error stays under 1 cm within ~1 km of the
+    origin, which is the assumption that actually holds.
     """
-    d_lat = lat - lat0
-    d_lon = lon - lon0
-    east  = d_lon * math.cos(math.radians(lat0)) * 111_320.0
-    north = d_lat * 110_852.0
+    m_per_deg_lat, m_per_deg_lon = enu_scale_factors(lat0)
+    east  = (lon - lon0) * m_per_deg_lon
+    north = (lat - lat0) * m_per_deg_lat
     up    = alt - alt0
     return east, north, up
 
@@ -122,6 +152,15 @@ class MavlinkGPSReader(threading.Thread):
                     lat = msg.lat / 1e7
                     lon = msg.lon / 1e7
                     alt = msg.alt / 1000.0  # mm to m MSL
+                    # FIX (instrumentation): GLOBAL_POSITION_INT already carries
+                    # the EKF velocity in cm/s (NED). It was being discarded, so
+                    # every ground-truth velocity downstream had to be obtained
+                    # by differentiating position -- costing ~0.1 m/s of noise
+                    # and ~0.3 s of bandwidth for nothing. Log the native field.
+                    v_ned = (msg.vx / 100.0, msg.vy / 100.0, msg.vz / 100.0)
+                    v_enu = (v_ned[1], v_ned[0], -v_ned[2])
+                    rel_alt = getattr(msg, 'relative_alt', 0) / 1000.0
+                    hdg = getattr(msg, 'hdg', 65535)
 
                     if lat == 0.0 and lon == 0.0:
                         continue  # No fix yet
@@ -141,6 +180,10 @@ class MavlinkGPSReader(threading.Thread):
                         'lon':     round(lon, 8),
                         'alt':     round(alt, 2),
                         'enu':     [round(e, 4), round(n, 4), round(u, 4)],
+                        'v_enu':   [round(v, 4) for v in v_enu],
+                        'v_ned':   [round(v, 4) for v in v_ned],
+                        'rel_alt': round(rel_alt, 3),
+                        'hdg_deg': (None if hdg == 65535 else round(hdg / 100.0, 2)),
                         'sats':    self.last_sats,
                         'quality': 1 if self.last_sats >= 4 else 0, # rough proxy
                     }
@@ -192,6 +235,12 @@ def run(args):
     alt_sock.bind(('127.0.0.1', args.alt_port))
     alt_sock.setblocking(False)
 
+    rej_sock = None
+    if args.reject_port:
+        rej_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        rej_sock.bind(('127.0.0.1', args.reject_port))
+        rej_sock.setblocking(False)
+
     logging.info("── Configuration ──")
     logging.info(f"  Log file:   {log_path}")
     logging.info(f"  GPS MAVL:   {args.mavlink_dest}")
@@ -207,12 +256,16 @@ def run(args):
     n_slam = 0
     n_imu = 0
     n_alt = 0
+    n_rio_rej = 0
+    n_slam_rej = 0
     t_start = time.monotonic()
     last_status = t_start
 
     # RIO velocity integrator (for computing odometry distance)
     rio_dist = 0.0
     rio_pos = np.zeros(3)
+    rio_gap_s = 0.0
+    rio_gaps = 0
     last_rio_t = None
     last_rio_v = None
 
@@ -245,7 +298,8 @@ def run(args):
                         data, _ = rio_sock.recvfrom(128)
                         if len(data) < RIO_PKT.size:
                             continue
-                        t_frame, vx, vy, vz, inliers, _cxx, _cyy, _czz, n_total, flags, cond = RIO_PKT.unpack(data)
+                        (t_frame, vx, vy, vz, inliers, cxx, cyy, czz,
+                         n_total, flags, cond) = RIO_PKT.unpack(data)
                         t_mono = time.monotonic()
 
                         is_static = bool(flags & 1)
@@ -256,11 +310,23 @@ def run(args):
                         v_curr = np.array([vx, vy, vz])
                         if last_rio_t is not None and last_rio_v is not None:
                             dt = t_mono - last_rio_t
-                            if dt > 0:
-                                # Coast across dropouts perfectly using trapezoidal average
+                            # FIX: cap dt. The old code trapezoid-integrated
+                            # straight across dropouts of ANY length -- a 12.5 s
+                            # gap was filled in as if the last known velocity had
+                            # held throughout. That is fabricated distance.
+                            if 0 < dt <= 0.5:
                                 v_avg = (last_rio_v + v_curr) / 2.0
+                                # NOTE: v is BODY-frame. Summing it without
+                                # rotating by heading is not a displacement and
+                                # never was; rio_dist (a path length) is fine,
+                                # rio_pos is not. Kept only for continuity of the
+                                # console line -- use tools/analyze_run_v2.py,
+                                # which rotates through the FC attitude.
                                 rio_pos += v_avg * dt
                                 rio_dist += float(np.linalg.norm(v_avg)) * dt
+                            elif dt > 0.5:
+                                rio_gap_s += dt
+                                rio_gaps += 1
                         
                         last_rio_t = t_mono
                         last_rio_v = v_curr
@@ -278,6 +344,15 @@ def run(args):
                             'airborne': airborne,
                             'vz_prior': vz_prior_used,
                             'cond':     round(float(cond), 2),
+                            # FIX (instrumentation): the per-frame covariance
+                            # was received and then thrown away. It is the exact
+                            # number the autopilot EKF weights this measurement
+                            # by -- if it is wrong (see finding R-1) nothing
+                            # else in the log reveals it. Logged as sigma (m/s)
+                            # because that is the reviewable quantity.
+                            'sx': round(float(math.sqrt(max(cxx, 0.0))), 4),
+                            'sy': round(float(math.sqrt(max(cyy, 0.0))), 4),
+                            'sz': round(float(math.sqrt(max(czz, 0.0))), 4),
                         }
                         f.write(json.dumps(entry) + '\n')
                         n_rio += 1
@@ -288,27 +363,87 @@ def run(args):
                 try:
                     while True:
                         data, _ = pose_sock.recvfrom(2048)
-                        hdr_sz = POSE_PKT_HDR.size
-                        if len(data) < hdr_sz + 128:
-                            continue
-                        t_slam, n_map, fwd_range = POSE_PKT_HDR.unpack_from(data)
-                        T = np.frombuffer(data[hdr_sz:hdr_sz + 128],
-                                          dtype='<f8').reshape(4, 4).copy()
-                        pos = T[:3, 3].tolist()
                         t_mono = time.monotonic()
 
-                        entry = {
-                            'type':      'slam',
-                            't_mono':    round(t_mono, 6),
-                            't_slam':    round(t_slam, 6),
-                            'pos':       [round(p, 4) for p in pos],
-                            'n_map':     int(n_map),
-                            'fwd_range': round(float(fwd_range), 2),
-                        }
+                        # SLAM keyframe REJECTION (v2 only)
+                        if len(data) == SLAM_REJECT_PKT.size:
+                            (ts, code, nraw, nrange, ndopp, npers, nsor,
+                             ncorr) = SLAM_REJECT_PKT.unpack(data)
+                            f.write(json.dumps({
+                                'type': 'slam_reject',
+                                't_mono': round(t_mono, 6), 't_slam': round(ts, 6),
+                                'reason': SLAM_REJECT_INV.get(code, 'unknown'),
+                                'n_raw': int(nraw), 'n_after_range': int(nrange),
+                                'n_after_doppler': int(ndopp),
+                                'n_after_persistence': int(npers),
+                                'n_after_sor': int(nsor), 'n_corr': int(ncorr),
+                            }) + '\n')
+                            n_slam_rej += 1
+                            continue
+
+                        entry = None
+                        if (len(data) >= POSE_PKT_HDR_V2.size + 128
+                                and data[:4] == POSE_MAGIC_V2):
+                            (_m, t_slam, n_map, fwd_range, n_corr, fitness, rmse,
+                             n_obs, n_raw, n_final) = POSE_PKT_HDR_V2.unpack_from(data)
+                            hdr_sz = POSE_PKT_HDR_V2.size
+                            T = np.frombuffer(data[hdr_sz:hdr_sz + 128],
+                                              dtype='<f8').reshape(4, 4).copy()
+                            entry = {
+                                'type': 'slam',
+                                't_mono': round(t_mono, 6),
+                                't_slam': round(t_slam, 6),
+                                'pos': [round(p, 4) for p in T[:3, 3].tolist()],
+                                'R': [round(float(x), 6) for x in T[:3, :3].ravel()],
+                                'n_map': int(n_map),
+                                'fwd_range': round(float(fwd_range), 2),
+                                'n_corr': int(n_corr),
+                                'fitness': round(float(fitness), 4),
+                                'rmse': round(float(rmse), 4),
+                                'n_obs_axes': int(n_obs),
+                                'n_raw': int(n_raw), 'n_final': int(n_final),
+                            }
+                        elif len(data) >= POSE_PKT_HDR.size + 128:
+                            hdr_sz = POSE_PKT_HDR.size
+                            t_slam, n_map, fwd_range = POSE_PKT_HDR.unpack_from(data)
+                            T = np.frombuffer(data[hdr_sz:hdr_sz + 128],
+                                              dtype='<f8').reshape(4, 4).copy()
+                            entry = {
+                                'type': 'slam',
+                                't_mono': round(t_mono, 6),
+                                't_slam': round(t_slam, 6),
+                                'pos': [round(p, 4) for p in T[:3, 3].tolist()],
+                                'R': [round(float(x), 6) for x in T[:3, :3].ravel()],
+                                'n_map': int(n_map),
+                                'fwd_range': round(float(fwd_range), 2),
+                            }
+                        if entry is None:
+                            continue
                         f.write(json.dumps(entry) + '\n')
                         n_slam += 1
                 except BlockingIOError:
                     pass
+
+                # ── RIO rejected frames (drain all pending) ──
+                if rej_sock is not None:
+                    try:
+                        while True:
+                            data, _ = rej_sock.recvfrom(64)
+                            if len(data) != REJECT_PKT.size:
+                                continue
+                            ts, ntot, ninl, code, cond, extra = REJECT_PKT.unpack(data)
+                            f.write(json.dumps({
+                                'type': 'rio_reject',
+                                't_mono': round(time.monotonic(), 6),
+                                't_frame': round(ts, 6),
+                                'reason': REJECT_REASONS_INV.get(code, 'unknown'),
+                                'n_total': int(ntot), 'inliers': int(ninl),
+                                'cond': round(float(cond), 2),
+                                'extra': round(float(extra), 4),
+                            }) + '\n')
+                            n_rio_rej += 1
+                    except BlockingIOError:
+                        pass
 
                 # ── IMU data (drain all pending) ──
                 try:
@@ -358,7 +493,8 @@ def run(args):
                     gps_tag = (f"GPS: {n_gps} fixes, {gps.last_sats} sats"
                                if gps.origin else "GPS: waiting for fix...")
                     slam_tag = f"SLAM: {n_slam} poses"
-                    rio_tag = f"RIO: {n_rio} pkts, dist={rio_dist:.2f}m"
+                    rio_tag = (f"RIO: {n_rio} ok / {n_rio_rej} rej, "
+                               f"dist={rio_dist:.2f}m, gaps={rio_gaps}/{rio_gap_s:.0f}s")
                     imu_tag = f"IMU: {n_imu} pkts"
                     alt_tag = f"ALT: {n_alt} pkts"
                     logging.info(f"{elapsed:5.0f}s | {gps_tag} | {rio_tag} | {slam_tag} | {imu_tag} | {alt_tag}")
@@ -373,21 +509,29 @@ def run(args):
         rio_sock.close()
         pose_sock.close()
         imu_sock.close()
+        alt_sock.close()          # FIX: alt_sock was never closed
+        if rej_sock:
+            rej_sock.close()
 
     # ── Session summary ──
     logging.info("── Session Summary ──")
     logging.info(f"  Log file:       {log_path}")
     logging.info(f"  GPS fixes:      {n_gps}")
     logging.info(f"  RIO frames:     {n_rio}")
-    logging.info(f"  SLAM poses:     {n_slam}")
+    logging.info(f"  SLAM poses:     {n_slam}  (rejected keyframes: {n_slam_rej})")
+    logging.info(f"  RIO rejected:   {n_rio_rej}"
+                 + (f"  -> accept rate {100*n_rio/max(n_rio+n_rio_rej,1):.1f} %"
+                    if (n_rio + n_rio_rej) else ""))
     logging.info(f"  IMU frames:     {n_imu}")
     logging.info(f"  ALT frames:     {n_alt}")
     logging.info(f"  RIO distance:   {rio_dist:.2f} m")
-    logging.info(f"  RIO displacement: {np.linalg.norm(rio_pos):.2f} m")
+    logging.info(f"  RIO dropouts:   {rio_gaps} gaps totalling {rio_gap_s:.1f} s")
+    logging.info(f"  (BODY-frame displacement {np.linalg.norm(rio_pos):.2f} m -- "
+                 f"NOT a world displacement; see analyze_run_v2.py)")
     if gps.origin:
         logging.info(f"  GPS origin:     {gps.origin[0]:.6f}°, "
                      f"{gps.origin[1]:.6f}°, {gps.origin[2]:.1f}m MSL")
-    logging.info(f"Run:  python3 tools/analyze_run.py {log_path}")
+    logging.info(f"Run:  python3 tools/analyze_run_v2.py {log_path} --plot run.png")
 
 
 def main():
@@ -403,6 +547,9 @@ def main():
                     help="UDP port to receive IMU data from imu_bridge.py")
     p.add_argument('--alt-port', type=int, default=5033,
                     help="UDP port to receive Altimeter data from altimeter_bridge.py")
+    p.add_argument('--reject-port', type=int, default=5015,
+                    help="UDP port for doppler_rio.py's rejected-frame telemetry "
+                         "(launch doppler_rio with --reject-ports 5015). 0 to disable.")
     p.add_argument('--log-dir', default='logs',
                     help="Directory for JSONL log files")
     p.add_argument('--ref-height-m', type=float, default=0.9,

@@ -233,7 +233,7 @@ class PoseTracker:
     to replace once Stage B SLAM/EKF work lands (see ARCHITECTURE.md).
 
     ATTITUDE ROTATION: body-frame velocity from RIO is rotated into the nav
-    (ENU) frame using the autopilot's own roll/pitch/yaw estimate via
+    (NED) frame using the autopilot's own roll/pitch/yaw estimate via
     body_to_nav_rotation() before integrating. If attitude is unavailable or
     stale, dead-reckoning is skipped entirely rather than silently integrating
     in the wrong frame — a brief pose-staleness event is far better than a
@@ -294,7 +294,7 @@ class PoseTracker:
     def on_rio_velocity(self, t: float, v_body: np.ndarray,
                          attitude: AttitudeState | None = None):
         """Dead-reckon the position estimate forward using RIO velocity,
-        rotating v_body from body frame into nav (ENU) frame using the
+        rotating v_body from body frame into nav (NED) frame using the
         autopilot's own attitude estimate.
 
         If attitude is None or stale, dead-reckoning is SKIPPED — we

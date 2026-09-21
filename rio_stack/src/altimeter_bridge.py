@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """altimeter_bridge.py -- Linpowave U200A belly radar -> UDP fan-out.
 
+WIRE CONTRACT: the single float32 on the UDP port is the RAW SLANT RANGE in
+metres along the body -Z axis, referenced to the flight controller by
+--lever-z. It is NOT a vertical height. Consumers that want height above
+ground must apply  h = r * cos(roll) * cos(pitch)  themselves.
+
 The U200A is the ONLY absolute height reference in this GPS-denied stack.
 SLAM Z is a free-running integrator (documented: 191 m drift in 96 s) and the
 barometer drifts with weather and prop wash. Everything vertical -- the EKF
@@ -20,6 +25,16 @@ import serial
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 ALT_PKT = struct.Struct('<f')       # matches mavlink_bridge.py
+# FIX R-6: the U200A measures SLANT range along body -Z. Three consumers each
+# made a different assumption about it:
+#   nav_node.on_altimeter()      applied cos(roll)cos(pitch)   -- correct
+#   slam_node._gravity_correct() treated it as vertical height -- wrong
+#   mavlink_bridge DISTANCE_SENSOR passed it raw                -- correct, the
+#     autopilot applies its own rangefinder tilt compensation
+# Measured disagreement on the 2026-09-20 flights: mean 0.32 m, max 5.52 m.
+# The bridge cannot correct it here without the attitude, which it does not
+# have, so the contract is made explicit instead: this port always carries the
+# RAW SLANT RANGE, and every consumer must correct it. See the docstring.
 
 MAX_CLIMB_MPS = 5.0 # Max sane climb/descent speed for outlier rejection
 

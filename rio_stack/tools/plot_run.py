@@ -87,6 +87,22 @@ C_GOOD  = "green"
 #  Data Loading
 # ═══════════════════════════════════════════════════════════════════════════════
 
+_DEPRECATION = """
++---------------------------------------------------------------------------+
+|  plot_run.py is SUPERSEDED by tools/analyze_run_v2.py.                    |
+|                                                                            |
+|  Known defects retained here for figure compatibility:                     |
+|   * rio_integrate() does not rotate body velocity into the world frame,    |
+|     so its trajectory and displacement are meaningless under yaw.          |
+|   * gps_path_length_1hz() has no deadband, while analyze_run.py has one,   |
+|     so the two tools report different "GPS path length" for the same log.  |
+|   * align_slam_to_gps() reports Kabsch SHAPE error, while analyze_run.py   |
+|     reports RAW absolute error, and neither says which it is.              |
+|  Do not gate a flight decision on this file.                               |
++---------------------------------------------------------------------------+
+"""
+
+
 def load_log(path: str):
     gps, rio, slam, imu, alt, meta = [], [], [], [], [], {}
     with open(path) as f:
@@ -140,9 +156,22 @@ def gps_path_length_1hz(gps):
 
 
 def rio_integrate(rio):
-    """Integrate RIO velocity → position trajectory + scalar distances."""
+    """Integrate RIO velocity -> position trajectory + scalar distances.
+
+    WARNING (finding A-4): this integrates BODY-frame velocity with no rotation
+    into the world frame. The result is not a trajectory as soon as the aircraft
+    yaws -- on the 2026-09-20 logs it produces 50 m of 'displacement' for a
+    flight that returned to within 0.4 m of its start. It disagrees with
+    tools/analyze_run.py, which does rotate. Use tools/analyze_run_v2.py.
+    Kept only so existing figures still render; see the banner drawn on the
+    trajectory panel.
+
+    FIX: the empty-input branch returned THREE values while the normal path
+    returns TWO, so `positions, dists = rio_integrate([])` raised ValueError on
+    any log with no RIO entries.
+    """
     if not rio:
-        return np.zeros((0, 3)), np.array([]), np.array([])
+        return np.zeros((0, 3)), np.array([])
     pos = np.zeros(3)
     positions = [pos.copy()]
     dists = [0.0]
@@ -598,6 +627,7 @@ def build_figure(gps, rio, slam, imu, alt, meta, log_path: str):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
+    print(_DEPRECATION)
     p = argparse.ArgumentParser(
         description="Absolute visual analyzer — generates MATLAB-quality plot from JSONL log")
     p.add_argument("log_file", help="Path to JSONL log produced by gps_logger.py")
