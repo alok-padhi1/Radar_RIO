@@ -26,9 +26,9 @@ import numpy as np
 class NavigationMode(enum.Enum):
     """Navigation state machine states — Blueprint §20."""
     INITIALIZING = "INITIALIZING"
-    RIO_ONLY = "RIO_ONLY"
-    RIO_GOOD = "RIO_GOOD"
-    RIO_DEGRADED = "RIO_DEGRADED"
+    RADAR_VELOCITY_GOOD = "RADAR_VELOCITY_GOOD"
+    RADAR_VELOCITY_DEGRADED = "RADAR_VELOCITY_DEGRADED"
+    RIO_IMU_ONLY = "RIO_IMU_ONLY"
     SLAM_GOOD = "SLAM_GOOD"
     SLAM_DEGRADED = "SLAM_DEGRADED"
     RECOVERY = "RECOVERY"
@@ -230,6 +230,13 @@ class RIOState:
     doppler_residual_rms: float = float('nan')
     imu_residual_rms: float = float('nan')
     optimizer_iterations: int = 0
+    
+    # ESKF Fusion Metrics
+    radar_velocity: Optional[tuple] = None
+    radar_velocity_covariance: Optional[list] = None
+    innovation: Optional[tuple] = None
+    mahalanobis_distance: float = 0.0
+    radar_points_used: int = 0
 
 
 # ============================================================================

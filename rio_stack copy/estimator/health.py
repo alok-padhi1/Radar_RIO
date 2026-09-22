@@ -308,10 +308,10 @@ class NavigationHealthManager:
         """Update the navigation state machine — Blueprint §20.
 
         Transition logic:
-            INITIALIZING → RIO_ONLY: enough IMU + radar data
-            RIO_ONLY → RIO_GOOD: sufficient radar confidence
-            RIO_GOOD → SLAM_GOOD: stable submap match
-            * → RIO_DEGRADED: degraded geometry
+            INITIALIZING → RIO_IMU_ONLY: enough IMU + radar data
+            RIO_IMU_ONLY → RADAR_VELOCITY_GOOD: sufficient radar confidence
+            RADAR_VELOCITY_GOOD → SLAM_GOOD: stable submap match
+            * → RADAR_VELOCITY_DEGRADED: degraded geometry
             * → RECOVERY: radar/IMU issues
             * → INVALID: critical failure
         """
@@ -338,19 +338,19 @@ class NavigationHealthManager:
         if self._mode == NavigationMode.INITIALIZING:
             if (self.imu_health.healthy and self.radar_health.healthy and
                     rio is not None and rio.valid):
-                self._set_mode(NavigationMode.RIO_ONLY)
+                self._set_mode(NavigationMode.RIO_IMU_ONLY)
                 self._quality = QualityLevel.DEGRADED
 
-        elif self._mode == NavigationMode.RIO_ONLY:
+        elif self._mode == NavigationMode.RIO_IMU_ONLY:
             if rio is not None and rio.valid and rio.n_static_points >= self.config.min_static_points:
                 hold_ok = (now - self._mode_entry_time) >= self.config.min_good_duration_s
                 if hold_ok:
-                    self._set_mode(NavigationMode.RIO_GOOD)
+                    self._set_mode(NavigationMode.RADAR_VELOCITY_GOOD)
                     self._quality = QualityLevel.GOOD
 
-        elif self._mode == NavigationMode.RIO_GOOD:
+        elif self._mode == NavigationMode.RADAR_VELOCITY_GOOD:
             if not self.radar_health.healthy or (rio and not rio.valid):
-                self._set_mode(NavigationMode.RIO_DEGRADED)
+                self._set_mode(NavigationMode.RADAR_VELOCITY_DEGRADED)
                 self._quality = QualityLevel.DEGRADED
                 self._reasons.append("radar_degraded")
             elif slam is not None and slam.valid and slam.n_correspondences >= self.config.min_radar_points:
@@ -359,11 +359,11 @@ class NavigationHealthManager:
 
         elif self._mode == NavigationMode.SLAM_GOOD:
             if slam is None or not slam.valid:
-                self._set_mode(NavigationMode.RIO_GOOD)
+                self._set_mode(NavigationMode.RADAR_VELOCITY_GOOD)
                 self._quality = QualityLevel.GOOD
                 self._reasons.append("slam_invalid")
             elif not self.radar_health.healthy:
-                self._set_mode(NavigationMode.RIO_DEGRADED)
+                self._set_mode(NavigationMode.RADAR_VELOCITY_DEGRADED)
                 self._quality = QualityLevel.DEGRADED
                 self._reasons.append("radar_degraded_from_slam")
 
@@ -372,12 +372,12 @@ class NavigationHealthManager:
                 self._set_mode(NavigationMode.SLAM_GOOD)
                 self._quality = QualityLevel.GOOD
             elif not self.radar_health.healthy:
-                self._set_mode(NavigationMode.RIO_DEGRADED)
+                self._set_mode(NavigationMode.RADAR_VELOCITY_DEGRADED)
                 self._quality = QualityLevel.DEGRADED
 
-        elif self._mode == NavigationMode.RIO_DEGRADED:
+        elif self._mode == NavigationMode.RADAR_VELOCITY_DEGRADED:
             if self.radar_health.healthy and rio is not None and rio.valid:
-                self._set_mode(NavigationMode.RIO_GOOD)
+                self._set_mode(NavigationMode.RADAR_VELOCITY_GOOD)
                 self._quality = QualityLevel.GOOD
             elif self.radar_health.is_stale(now):
                 self._set_mode(NavigationMode.RECOVERY)
@@ -386,7 +386,7 @@ class NavigationHealthManager:
         elif self._mode == NavigationMode.RECOVERY:
             if self.radar_health.healthy and self.imu_health.healthy:
                 # Radar reacquired — do innovation check before resuming
-                self._set_mode(NavigationMode.RIO_ONLY)
+                self._set_mode(NavigationMode.RIO_IMU_ONLY)
                 self._quality = QualityLevel.DEGRADED
                 self._reasons.append("recovery_radar_reacquired")
 

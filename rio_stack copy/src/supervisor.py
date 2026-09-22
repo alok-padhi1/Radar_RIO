@@ -37,7 +37,8 @@ from drivers.cube.raw_imu_reader import RawIMUReader
 from estimator.health import NavigationHealthManager, HealthConfig
 from autopilot.mavlink_output import MAVLinkOutput, OutputConfig
 from estimator.logger import FlightLogger
-from estimator.rio_interface import RIOInterface, RIOInterfaceConfig
+from estimator.eskf_rio.estimator import ESKFRIOEstimator
+from estimator.state import NavigationState
 
 logger = logging.getLogger("Supervisor")
 
@@ -57,7 +58,7 @@ class StackSupervisor:
         self.u300_adapter = None
         self.altimeter_reader = None
         self.imu_reader = None
-        self.rio_bridge = None
+        self.eskf_estimator = None
         self.health_manager = None
         self.mavlink_out = None
         
@@ -105,9 +106,8 @@ class StackSupervisor:
         self.time_sync = TimeSyncManager(time_cfg)
 
         # 5. Core Adapters & Estimators
-        logger.info("[5/7] Initializing ZMQ RIO interface")
-        self.rio_bridge = RIOInterface()
-        self.rio_bridge.start()
+        logger.info("[5/7] Initializing Python ESKF RIO core")
+        self.eskf_estimator = ESKFRIOEstimator(self.health_manager)
         
         # 6. Health Manager
         logger.info("[6/7] Initializing Navigation Health Manager")
@@ -161,8 +161,8 @@ class StackSupervisor:
             self.u300_adapter.stop()
         if self.altimeter_reader:
             self.altimeter_reader.stop()
-        if self.rio_bridge:
-            self.rio_bridge.stop()
+        # if self.eskf_estimator:
+        #     self.eskf_estimator.stop()
         if self.logger:
             self.logger.stop()
             
@@ -175,19 +175,33 @@ class StackSupervisor:
             imu_sample = self.imu_reader.latest_raw
             if imu_sample and imu_sample.timestamp != self._last_imu_ts:
                 self._last_imu_ts = imu_sample.timestamp
-                # 2. Sync timestamps & push to C++
-                self.rio_bridge.send_imu(imu_sample)
+                # 2. Push to Python ESKF
+                if self.eskf_estimator:
+                    self.eskf_estimator.process_imu(imu_sample)
                 
             # 2b. Read Radar
             radar_scan = self.u300_adapter.read()
             if radar_scan and len(radar_scan.measurements) > 0:
-                self.rio_bridge.send_radar(radar_scan.measurements)
+                if self.eskf_estimator:
+                    self.eskf_estimator.process_radar(radar_scan)
             
             # 2c. Read Altimeter
             altimeter_sample = self.altimeter_reader.read()
+            if altimeter_sample and self.eskf_estimator and self.eskf_estimator.eskf:
+                self.eskf_estimator.eskf.update_altimeter(altimeter_sample.height_m)
             
-            # 3. Read latest state from C++ RIO core
-            state = self.rio_bridge.get_latest_state()
+            # 3. Read latest state from ESKF
+            state = None
+            if self.eskf_estimator and self.eskf_estimator.initialized:
+                state = NavigationState(
+                    timestamp=self.eskf_estimator.current_rio_state.timestamp,
+                    rio=self.eskf_estimator.current_rio_state,
+                    position=self.eskf_estimator.current_rio_state.position,
+                    velocity=self.eskf_estimator.current_rio_state.velocity,
+                    quaternion=self.eskf_estimator.current_rio_state.quaternion,
+                    angular_velocity=(self.eskf_estimator.last_gyro[0], self.eskf_estimator.last_gyro[1], self.eskf_estimator.last_gyro[2])
+                )
+            
             if state:
                 if altimeter_sample:
                     state.altimeter = altimeter_sample
