@@ -15,7 +15,7 @@ RIO::RIO() {
   scan2scanTracker.setMatchingThreshold(1, 0.3);
   scan2scanTracker.setMatchingParameters(
       SigmaRange, SigmaAzimuth, SigmaElevation, numSigma, useRCSFilter);
-  scan2scanTracker.setPredictedVelocityThreshold(0.3);
+  scan2scanTracker.setPredictedVelocityThreshold(1.0);
 
   // Init ZMQ
   zmq_sub.connect("ipc:///tmp/rio_sensor_in");
@@ -548,6 +548,7 @@ void RIO::radarCallback(const std::vector<Frame::RadarData> &msg, double timesta
 }
 
 static int initCounter = 0;
+static Eigen::Vector3d initGyroSum(0, 0, 0);
 void RIO::imuCallback(double timestamp, double ax, double ay, double az, double gx, double gy, double gz) {
   Frame::IMUFrame frame;
   frame.receivedTime = ros::Time(timestamp);
@@ -558,19 +559,20 @@ void RIO::imuCallback(double timestamp, double ax, double ay, double az, double 
   if (!init) {
     initCounter++;
     gravity += frame.accData;
+    initGyroSum += frame.gyroData;
     if (initCounter >= 100) {
       gravity /= initCounter;
       curState.vec.setZero();
       curState.rot.setIdentity();
       curState.vel.setZero();
       curState.accBias.setZero();
-      curState.gyroBias.setZero();
+      curState.gyroBias = initGyroSum / initCounter;
 
       predState.vec.setZero();
       predState.rot.setIdentity();
       predState.vel.setZero();
       predState.accBias.setZero();
-      predState.gyroBias.setZero();
+      predState.gyroBias = curState.gyroBias;
 
       radarExParam.vec.setZero();
       radarExParam.vec.z() = -0.05;
