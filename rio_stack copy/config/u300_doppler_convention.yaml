@@ -1,0 +1,27 @@
+# ============================================================================
+# U300 Doppler Sign Convention — Blueprint §5.3
+# ============================================================================
+# This file documents the experimentally measured Doppler sign convention
+# for the Linpowave U300.
+#
+# CALIBRATION PROCEDURE (§5.3):
+#   1. Radar stationary on bench
+#   2. Move a reflector TOWARD the radar → record Doppler sign
+#   3. Move reflector AWAY from radar → record Doppler sign
+#   4. Compare with RIO's expected convention
+#   5. Set `sign` to +1 or -1 accordingly
+#   6. Apply this conversion EXACTLY ONCE in drivers/u300/adapter.py
+#
+# CAUTION: The actual value MUST come from experiment, not assumption.
+# ============================================================================
+
+vendor_positive_radial_direction: "TOWARD_RADAR"   # VERIFY: bench test required
+rio_positive_direction: "AWAY_FROM_RADAR"          # HKUST RIO convention
+sign: -1                                            # VERIFY: bench test required
+
+# Calibration record:
+#   date: null
+#   operator: null
+#   reflector_type: null
+#   distance_m: null
+#   notes: "PLACEHOLDER — must be experimentally verified before flight"

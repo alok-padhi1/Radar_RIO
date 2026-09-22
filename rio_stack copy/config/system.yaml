@@ -1,0 +1,148 @@
+# ============================================================================
+# RIO Stack — Single Source of Truth Configuration
+# ============================================================================
+# Blueprint §67-68: Every flight-critical parameter specifies what it means,
+# units, coordinate frame, source, how calibrated, allowed range, and reason.
+#
+# IMPORTANT: Do NOT duplicate these values in Python CLI arguments.
+# All modules should load from this file.
+# ============================================================================
+
+# --- Coordinate Frames (§6) ---
+frames:
+  body: FRD            # Forward, Right, Down — Cube Orange+ convention
+  radar: U300_NATIVE   # Linpowave U300 documented native frame
+  world: LOCAL_NAV     # Estimator-local navigation frame
+  altimeter: BODY_DOWN # Altimeter beam direction in body frame
+
+# --- Radar↔Body Extrinsic (§6.1) ---
+# ONE authoritative transform T^B_R. Never apply tilt + lateral_sign +
+# imu_level_points + pitch_offset + yaw_correction independently.
+extrinsics:
+  radar_to_body:
+    translation_m: [0.16, 0.05, 0.07]    # [tx, ty, tz] body frame, metres
+    rotation_rpy_deg: [0.0, 50.0, 0.0]   # [roll, pitch, yaw] degrees
+    # source: "mechanical measurement + inclinometer"
+    # calibration_date: null
+    # CAUTION: placeholder values — must be calibrated per §Phase 3
+
+  altimeter_to_body:
+    translation_m: [0.0, 0.0, 0.10]       # lever arm FC→altimeter, body frame
+    beam_axis_body: [0.0, 0.0, -1.0]      # unit vector, altimeter beam in body
+    # source: "mechanical measurement"
+
+# --- U300 Radar Parameters (§5, §10) ---
+radar:
+  model: "Linpowave U300"
+  freq_ghz: "76-81"
+  max_range_m: 200.0         # Conservative operational limit (rated: 350 m)
+  min_range_m: 0.3           # Below this is sensor self-return zone
+  leakage_radius_m: 0.35     # TX/RX coupling near-field artifact zone
+  fov_azimuth_deg: 120.0     # Total azimuth FOV (±60°)
+  fov_elevation_deg: 24.0    # Total elevation FOV (±12°)
+  max_velocity_mps: 45.0     # Max detectable radial velocity
+  nominal_rate_hz: 20.0      # Expected frame rate
+
+# --- U300 Measurement Noise Model (§10.3) ---
+# CAUTION: These are initial conservative estimates.
+# Must be experimentally calibrated per §10.1-10.2.
+u300_noise:
+  sigma_range_m:
+    model: "constant"
+    value: 0.10              # metres — calibrate at 1,2,5,10,20,50,100 m
+  sigma_azimuth_rad:
+    model: "constant"
+    value: 0.035             # ~2.0 degrees — calibrate with angular sweep
+  sigma_elevation_rad:
+    model: "constant"
+    value: 0.070             # ~4.0 degrees — calibrate with angular sweep
+  sigma_doppler_mps:
+    model: "constant"
+    value: 0.05              # m/s — calibrate with stationary target
+
+# --- Doppler Convention (§5.3) ---
+# MUST be verified by bench test: stationary radar, move reflector toward/away.
+doppler:
+  vendor_positive_radial_direction: "TOWARD_RADAR"   # VERIFY experimentally
+  rio_positive_direction: "AWAY_FROM_RADAR"
+  sign: -1                  # Applied once in the U300 adapter
+
+# --- IMU (§7) ---
+imu:
+  source: "Cube Orange+ RAW_IMU"
+  rate_hz: 50                # Requested stream rate
+  # Do NOT use LOCAL_POSITION_NED as primary inertial input (§7.1)
+  # Do NOT use autopilot-derived velocity to drive RIO (§7.1)
+  # Do NOT create feedback loop: RIO→Cube EKF→ATTITUDE→RIO (§7.2)
+
+# --- Altimeter (§8) ---
+altimeter:
+  model: "Linpowave U200A"
+  max_range_m: 200.0
+  min_range_m: 0.2
+  max_age_s: 0.5             # Reject/inflate uncertainty above this age (§8.2)
+  beam_axis: [0.0, 0.0, -1.0]  # Body-frame beam direction
+
+# --- Estimator (§9) ---
+estimator:
+  # State: [p_W, v_W, q_WB, b_a, b_g]
+  max_state_latency_ms: 100
+  robust_loss: "HUBER"
+  huber_delta: 0.20
+  # Online extrinsic estimation: disabled for first implementation (§9.1)
+  estimate_extrinsics: false
+
+# --- Preprocessing (§11) ---
+preprocessing:
+  doppler_eps_mps: 0.40      # Doppler tolerance for static consistency
+  persistence_radius_m: 1.0
+  persistence_window: 4
+  persistence_min_hits: 2
+  voxel_size_m: 1.0
+  sor_nb_neighbors: 8
+  sor_std_ratio: 1.5
+
+# --- Mapping (§14, §16) ---
+mapping:
+  submap_frame_count: 30     # 20-50 frames per submap (§14)
+  registration_method: "GICP"  # Start with GICP (§16.1)
+  max_correspondence_dist_m: 6.0
+  min_correspondences: 15
+
+# --- Health Manager (§20, §39, §60) ---
+health:
+  covariance_consistency_ratio_max: 2.0
+  max_measurement_age_ms: 100
+  min_radar_points: 5         # Minimum usable points per frame
+  min_static_points: 3        # Minimum static points for RIO
+  max_innovation_sigma: 5.0   # Innovation gate in sigma units
+  observability:
+    lambda_min_threshold: 3.0   # Minimum eigenvalue for DOF observability
+    observable_ratio: 0.25
+
+# --- MAVLink Output (§22) ---
+mavlink:
+  autopilot: "ardupilot"      # "px4" or "ardupilot"
+  dest: "udp:127.0.0.1:14540"
+  baud: 921600
+  sysid: 1
+  compid: 197
+  # Stage 1: velocity only (§22.1)
+  # Stage 2: full odometry after SLAM validation (§22.2)
+  output_stage: 1
+  # Covariance must come from estimator posterior (§22.3)
+  # NEVER hard-code: cov = [0.05, 0, 0, ...]
+
+# --- Watchdogs (§48) ---
+watchdogs:
+  rio_stall_timeout_s: 2.0
+  slam_stall_timeout_s: 5.0
+  mavlink_stall_timeout_s: 3.0
+  radar_silent_timeout_s: 2.0
+  imu_silent_timeout_s: 1.0
+  altimeter_silent_timeout_s: 3.0
+
+# --- Logging (§36) ---
+logging:
+  log_dir: "logs/"
+  stats_interval_s: 5.0
