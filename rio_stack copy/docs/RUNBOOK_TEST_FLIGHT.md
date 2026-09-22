@@ -4,39 +4,18 @@ This document is the authoritative guide for launching the RIO stack for a **man
 
 ---
 
-## 1. Prerequisites (Compile the Math Core)
-Before you fly, you must ensure the C++ mathematics core is built.
-```bash
-cd "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio"
-mkdir -p build && cd build
-cmake ..
-make -j4
-```
+## 1. Prerequisites
+Ensure your hardware (Cube, Altimeter, U300 Radar) is connected and powered on.
 
 ---
 
 ## 2. Launch Sequence
 
-You will need **two separate terminals** open on your Jetson companion computer.
+You only need **one terminal** open on your Jetson companion computer.
 
-### Terminal 1: The C++ Estimator
-This terminal runs the heavy factor-graph optimization.
-**Command:**
-```bash
-cd "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build"
-./rio_node
-```
-**Expected Terminal Output:**
-```text
-[INFO] Starting HKUST RIO C++ Node
-[INFO] Binding ZeroMQ subscriber on ipc:///tmp/rio_sensor_in
-[INFO] Binding ZeroMQ publisher on ipc:///tmp/rio_state_out
-[INFO] Waiting for sensor data...
-```
-*(Leave this terminal running in the background. It will wait silently until the Python supervisor starts sending data).*
+### The Python Supervisor (Safe Mode)
+This terminal runs the entire RIO stack, including the new ESKF fusion engine, hardware drivers, and data logger. We use `--no-mavlink` so it **cannot** send control commands back to the drone during this test.
 
-### Terminal 2: The Python Supervisor (Safe Mode)
-This terminal reads the hardware (IMU, GPS, Altimeter, Radar) and handles logging. We use `--no-mavlink` so it **cannot** send control commands back to the drone.
 **Command:**
 ```bash
 cd "/home/alok/radar/rio_stack copy"
