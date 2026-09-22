@@ -1,0 +1,2353 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineSystem.cmake:233 (message)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      The system is: Linux - 7.0.0-31-generic - x86_64
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCCompiler.cmake:123 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler: /usr/lib/ccache/cc 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+      
+      The C compiler identification is GNU, found in:
+        /home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/3.28.3/CompilerIdC/a.out
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCXXCompiler.cmake:126 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+      Compiler: /usr/lib/ccache/c++ 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+      
+      The CXX compiler identification is GNU, found in:
+        /home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/3.28.3/CompilerIdCXX/a.out
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:57 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_98288/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_98288.dir/build.make CMakeFiles/cmTC_98288.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x'
+        Building C object CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o
+        /usr/lib/ccache/cc   -v -o CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-3.28/Modules/CMakeCCompilerABI.c
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/cc
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ff42d.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/cc1 -quiet -v -imultiarch x86_64-linux-gnu /usr/share/cmake-3.28/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_ff42d.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=x86-64 -version -fdiagnostics-color=always -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccg5pJvB.s
+        GNU C17 (Ubuntu 13.3.0-6ubuntu2~24.04.1) version 13.3.0 (x86_64-linux-gnu)
+        	compiled by GNU C version 13.3.0, GMP version 6.3.0, MPFR version 4.2.1, MPC version 1.3.1, isl version isl-0.26-GMP
+        
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/lib/gcc/x86_64-linux-gnu/13/include
+         /usr/local/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        Compiler executable checksum: b220a7f1a1f69970d969d254ad9ec166
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ff42d.dir/'
+         as -v --64 -o CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o /tmp/ccg5pJvB.s
+        GNU assembler version 2.42 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.42
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.'
+        Linking C executable cmTC_98288
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_98288.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -v -rdynamic CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o -o cmTC_98288 
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/cc
+        COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-v' '-rdynamic' '-o' 'cmTC_98288' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_98288.'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper -plugin-opt=-fresolution=/tmp/ccvMvYH0.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_98288 /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/13 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/13/../../.. CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o
+        COLLECT_GCC_OPTIONS='-v' '-rdynamic' '-o' 'cmTC_98288' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_98288.'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:127 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed C implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/usr/lib/gcc/x86_64-linux-gnu/13/include]
+          add: [/usr/local/include]
+          add: [/usr/include/x86_64-linux-gnu]
+          add: [/usr/include]
+        end of search list found
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/13/include] ==> [/usr/lib/gcc/x86_64-linux-gnu/13/include]
+        collapse include dir [/usr/local/include] ==> [/usr/local/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        implicit include dirs: [/usr/lib/gcc/x86_64-linux-gnu/13/include;/usr/local/include;/usr/include/x86_64-linux-gnu;/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:159 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        ignore line: [Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_98288/fast]
+        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_98288.dir/build.make CMakeFiles/cmTC_98288.dir/build]
+        ignore line: [gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aOZK1x']
+        ignore line: [Building C object CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o]
+        ignore line: [/usr/lib/ccache/cc   -v -o CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-3.28/Modules/CMakeCCompilerABI.c]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/cc]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) ]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ff42d.dir/']
+        ignore line: [ /usr/libexec/gcc/x86_64-linux-gnu/13/cc1 -quiet -v -imultiarch x86_64-linux-gnu /usr/share/cmake-3.28/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_ff42d.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=x86-64 -version -fdiagnostics-color=always -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccg5pJvB.s]
+        ignore line: [GNU C17 (Ubuntu 13.3.0-6ubuntu2~24.04.1) version 13.3.0 (x86_64-linux-gnu)]
+        ignore line: [	compiled by GNU C version 13.3.0  GMP version 6.3.0  MPFR version 4.2.1  MPC version 1.3.1  isl version isl-0.26-GMP]
+        ignore line: []
+        ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+        ignore line: [ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/13/include]
+        ignore line: [ /usr/local/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [ /usr/include]
+        ignore line: [End of search list.]
+        ignore line: [Compiler executable checksum: b220a7f1a1f69970d969d254ad9ec166]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ff42d.dir/']
+        ignore line: [ as -v --64 -o CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o /tmp/ccg5pJvB.s]
+        ignore line: [GNU assembler version 2.42 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.42]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.o' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ff42d.dir/CMakeCCompilerABI.c.']
+        ignore line: [Linking C executable cmTC_98288]
+        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_98288.dir/link.txt --verbose=1]
+        ignore line: [/usr/lib/ccache/cc  -v -rdynamic CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o -o cmTC_98288 ]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/cc]
+        ignore line: [COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) ]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-rdynamic' '-o' 'cmTC_98288' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_98288.']
+        link line: [ /usr/libexec/gcc/x86_64-linux-gnu/13/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper -plugin-opt=-fresolution=/tmp/ccvMvYH0.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_98288 /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/13 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/13/../../.. CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o]
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/13/collect2] ==> ignore
+          arg [-plugin] ==> ignore
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so] ==> ignore
+          arg [-plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper] ==> ignore
+          arg [-plugin-opt=-fresolution=/tmp/ccvMvYH0.res] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-export-dynamic] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-pie] ==> ignore
+          arg [-znow] ==> ignore
+          arg [-zrelro] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_98288] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib]
+          arg [-L/lib/x86_64-linux-gnu] ==> dir [/lib/x86_64-linux-gnu]
+          arg [-L/lib/../lib] ==> dir [/lib/../lib]
+          arg [-L/usr/lib/x86_64-linux-gnu] ==> dir [/usr/lib/x86_64-linux-gnu]
+          arg [-L/usr/lib/../lib] ==> dir [/usr/lib/../lib]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../..] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../..]
+          arg [CMakeFiles/cmTC_98288.dir/CMakeCCompilerABI.c.o] ==> ignore
+          arg [-lgcc] ==> lib [gcc]
+          arg [--push-state] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--pop-state] ==> ignore
+          arg [-lc] ==> lib [c]
+          arg [-lgcc] ==> lib [gcc]
+          arg [--push-state] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--pop-state] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o] ==> [/usr/lib/x86_64-linux-gnu/Scrt1.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o] ==> [/usr/lib/x86_64-linux-gnu/crti.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o] ==> [/usr/lib/x86_64-linux-gnu/crtn.o]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13] ==> [/usr/lib/gcc/x86_64-linux-gnu/13]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib] ==> [/usr/lib]
+        collapse library dir [/lib/x86_64-linux-gnu] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib] ==> [/lib]
+        collapse library dir [/usr/lib/x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib] ==> [/usr/lib]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../..] ==> [/usr/lib]
+        implicit libs: [gcc;gcc_s;c;gcc;gcc_s]
+        implicit objs: [/usr/lib/x86_64-linux-gnu/Scrt1.o;/usr/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o;/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o;/usr/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/usr/lib/gcc/x86_64-linux-gnu/13;/usr/lib/x86_64-linux-gnu;/usr/lib;/lib/x86_64-linux-gnu;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:57 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    checks:
+      - "Detecting CXX compiler ABI info"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_CXX_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d0025/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_d0025.dir/build.make CMakeFiles/cmTC_d0025.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge'
+        Building CXX object CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o
+        /usr/lib/ccache/c++   -v -o CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.28/Modules/CMakeCXXCompilerABI.cpp
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/c++
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_3c47c.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-3.28/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_3c47c.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fdiagnostics-color=always -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccVvrycu.s
+        GNU C++17 (Ubuntu 13.3.0-6ubuntu2~24.04.1) version 13.3.0 (x86_64-linux-gnu)
+        	compiled by GNU C version 13.3.0, GMP version 6.3.0, MPFR version 4.2.1, MPC version 1.3.1, isl version isl-0.26-GMP
+        
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring duplicate directory "/usr/include/x86_64-linux-gnu/c++/13"
+        ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/include/c++/13
+         /usr/include/x86_64-linux-gnu/c++/13
+         /usr/include/c++/13/backward
+         /usr/lib/gcc/x86_64-linux-gnu/13/include
+         /usr/local/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        Compiler executable checksum: 7896445e4990772fdae9dc0659a99266
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_3c47c.dir/'
+         as -v --64 -o CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o /tmp/ccVvrycu.s
+        GNU assembler version 2.42 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.42
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.'
+        Linking CXX executable cmTC_d0025
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d0025.dir/link.txt --verbose=1
+        /usr/lib/ccache/c++  -v -rdynamic CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_d0025 
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/c++
+        COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-v' '-rdynamic' '-o' 'cmTC_d0025' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_d0025.'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper -plugin-opt=-fresolution=/tmp/ccKynSyO.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_d0025 /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/13 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/13/../../.. CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o
+        COLLECT_GCC_OPTIONS='-v' '-rdynamic' '-o' 'cmTC_d0025' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_d0025.'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:127 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed CXX implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/usr/include/c++/13]
+          add: [/usr/include/x86_64-linux-gnu/c++/13]
+          add: [/usr/include/c++/13/backward]
+          add: [/usr/lib/gcc/x86_64-linux-gnu/13/include]
+          add: [/usr/local/include]
+          add: [/usr/include/x86_64-linux-gnu]
+          add: [/usr/include]
+        end of search list found
+        collapse include dir [/usr/include/c++/13] ==> [/usr/include/c++/13]
+        collapse include dir [/usr/include/x86_64-linux-gnu/c++/13] ==> [/usr/include/x86_64-linux-gnu/c++/13]
+        collapse include dir [/usr/include/c++/13/backward] ==> [/usr/include/c++/13/backward]
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/13/include] ==> [/usr/lib/gcc/x86_64-linux-gnu/13/include]
+        collapse include dir [/usr/local/include] ==> [/usr/local/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        implicit include dirs: [/usr/include/c++/13;/usr/include/x86_64-linux-gnu/c++/13;/usr/include/c++/13/backward;/usr/lib/gcc/x86_64-linux-gnu/13/include;/usr/local/include;/usr/include/x86_64-linux-gnu;/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:159 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed CXX implicit link information:
+        link line regex: [^( *|.*[/\\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        ignore line: [Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d0025/fast]
+        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_d0025.dir/build.make CMakeFiles/cmTC_d0025.dir/build]
+        ignore line: [gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-SmC6ge']
+        ignore line: [Building CXX object CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o]
+        ignore line: [/usr/lib/ccache/c++   -v -o CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.28/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/c++]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) ]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_3c47c.dir/']
+        ignore line: [ /usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-3.28/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_3c47c.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fdiagnostics-color=always -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccVvrycu.s]
+        ignore line: [GNU C++17 (Ubuntu 13.3.0-6ubuntu2~24.04.1) version 13.3.0 (x86_64-linux-gnu)]
+        ignore line: [	compiled by GNU C version 13.3.0  GMP version 6.3.0  MPFR version 4.2.1  MPC version 1.3.1  isl version isl-0.26-GMP]
+        ignore line: []
+        ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+        ignore line: [ignoring duplicate directory "/usr/include/x86_64-linux-gnu/c++/13"]
+        ignore line: [ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/include/c++/13]
+        ignore line: [ /usr/include/x86_64-linux-gnu/c++/13]
+        ignore line: [ /usr/include/c++/13/backward]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/13/include]
+        ignore line: [ /usr/local/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [ /usr/include]
+        ignore line: [End of search list.]
+        ignore line: [Compiler executable checksum: 7896445e4990772fdae9dc0659a99266]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_3c47c.dir/']
+        ignore line: [ as -v --64 -o CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o /tmp/ccVvrycu.s]
+        ignore line: [GNU assembler version 2.42 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.42]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-c' '-o' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_3c47c.dir/CMakeCXXCompilerABI.cpp.']
+        ignore line: [Linking CXX executable cmTC_d0025]
+        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d0025.dir/link.txt --verbose=1]
+        ignore line: [/usr/lib/ccache/c++  -v -rdynamic CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_d0025 ]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/c++]
+        ignore line: [COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) ]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-rdynamic' '-o' 'cmTC_d0025' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_d0025.']
+        link line: [ /usr/libexec/gcc/x86_64-linux-gnu/13/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper -plugin-opt=-fresolution=/tmp/ccKynSyO.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_d0025 /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/13 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/13/../../.. CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o]
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/13/collect2] ==> ignore
+          arg [-plugin] ==> ignore
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so] ==> ignore
+          arg [-plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper] ==> ignore
+          arg [-plugin-opt=-fresolution=/tmp/ccKynSyO.res] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-export-dynamic] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-pie] ==> ignore
+          arg [-znow] ==> ignore
+          arg [-zrelro] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_d0025] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib]
+          arg [-L/lib/x86_64-linux-gnu] ==> dir [/lib/x86_64-linux-gnu]
+          arg [-L/lib/../lib] ==> dir [/lib/../lib]
+          arg [-L/usr/lib/x86_64-linux-gnu] ==> dir [/usr/lib/x86_64-linux-gnu]
+          arg [-L/usr/lib/../lib] ==> dir [/usr/lib/../lib]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../..] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../..]
+          arg [CMakeFiles/cmTC_d0025.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+          arg [-lstdc++] ==> lib [stdc++]
+          arg [-lm] ==> lib [m]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [-lc] ==> lib [c]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o] ==> [/usr/lib/x86_64-linux-gnu/Scrt1.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o] ==> [/usr/lib/x86_64-linux-gnu/crti.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o] ==> [/usr/lib/x86_64-linux-gnu/crtn.o]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13] ==> [/usr/lib/gcc/x86_64-linux-gnu/13]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib] ==> [/usr/lib]
+        collapse library dir [/lib/x86_64-linux-gnu] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib] ==> [/lib]
+        collapse library dir [/usr/lib/x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib] ==> [/usr/lib]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../..] ==> [/usr/lib]
+        implicit libs: [stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+        implicit objs: [/usr/lib/x86_64-linux-gnu/Scrt1.o;/usr/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o;/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o;/usr/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/usr/lib/gcc/x86_64-linux-gnu/13;/usr/lib/x86_64-linux-gnu;/usr/lib;/lib/x86_64-linux-gnu;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenMP.cmake:206 (try_compile)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenMP.cmake:451 (_OPENMP_GET_FLAGS)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:336 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "OpenMP_COMPILE_RESULT_C_fopenmp"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_73ad1/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_73ad1.dir/build.make CMakeFiles/cmTC_73ad1.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        Building C object CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o
+        /usr/lib/ccache/cc   -fopenmp -v -o CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/FindOpenMP/OpenMPTryFlag.c"
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/cc
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-fopenmp' '-v' '-c' '-o' 'CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'CMakeFiles/cmTC_73ad1.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/cc1 -quiet -v -imultiarch x86_64-linux-gnu -D_REENTRANT /home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/FindOpenMP/OpenMPTryFlag.c -quiet -dumpdir CMakeFiles/cmTC_73ad1.dir/ -dumpbase OpenMPTryFlag.c.c -dumpbase-ext .c -mtune=generic -march=x86-64 -version -fdiagnostics-color=always -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccUQhEyT.s
+        GNU C17 (Ubuntu 13.3.0-6ubuntu2~24.04.1) version 13.3.0 (x86_64-linux-gnu)
+        	compiled by GNU C version 13.3.0, GMP version 6.3.0, MPFR version 4.2.1, MPC version 1.3.1, isl version isl-0.26-GMP
+        
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/lib/gcc/x86_64-linux-gnu/13/include
+         /usr/local/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        Compiler executable checksum: b220a7f1a1f69970d969d254ad9ec166
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-fopenmp' '-v' '-c' '-o' 'CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'CMakeFiles/cmTC_73ad1.dir/'
+         as -v --64 -o CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o /tmp/ccUQhEyT.s
+        GNU assembler version 2.42 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.42
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-fopenmp' '-v' '-c' '-o' 'CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.'
+        Linking C executable cmTC_73ad1
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_73ad1.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -fopenmp -v CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o -o cmTC_73ad1  -v 
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/cc
+        COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        Reading specs from /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.spec
+        COLLECT_GCC_OPTIONS='-fopenmp' '-v' '-o' 'cmTC_73ad1' '-v' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'cmTC_73ad1.'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper -plugin-opt=-fresolution=/tmp/ccAaZfSh.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_73ad1 /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o /usr/lib/gcc/x86_64-linux-gnu/13/crtoffloadbegin.o -L/usr/lib/gcc/x86_64-linux-gnu/13 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/13/../../.. CMakeFiles/cmTC_73ad1.dir/OpenMPTryFlag.c.o -lgomp -lgcc --push-state --as-needed -lgcc_s --pop-state -lpthread -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o /usr/lib/gcc/x86_64-linux-gnu/13/crtoffloadend.o
+        COLLECT_GCC_OPTIONS='-fopenmp' '-v' '-o' 'cmTC_73ad1' '-v' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'cmTC_73ad1.'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenMP.cmake:206 (try_compile)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenMP.cmake:451 (_OPENMP_GET_FLAGS)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:336 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "OpenMP_COMPILE_RESULT_CXX_fopenmp"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_fe151/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_fe151.dir/build.make CMakeFiles/cmTC_fe151.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o
+        /usr/lib/ccache/c++   -fopenmp -v -std=c++17 -o CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp"
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/c++
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-fopenmp' '-std=c++17' '-v' '-c' '-o' 'CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'CMakeFiles/cmTC_fe151.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE -D_REENTRANT /home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp -quiet -dumpdir CMakeFiles/cmTC_fe151.dir/ -dumpbase OpenMPTryFlag.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -std=c++17 -version -fdiagnostics-color=always -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccrJi16s.s
+        GNU C++17 (Ubuntu 13.3.0-6ubuntu2~24.04.1) version 13.3.0 (x86_64-linux-gnu)
+        	compiled by GNU C version 13.3.0, GMP version 6.3.0, MPFR version 4.2.1, MPC version 1.3.1, isl version isl-0.26-GMP
+        
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring duplicate directory "/usr/include/x86_64-linux-gnu/c++/13"
+        ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/include/c++/13
+         /usr/include/x86_64-linux-gnu/c++/13
+         /usr/include/c++/13/backward
+         /usr/lib/gcc/x86_64-linux-gnu/13/include
+         /usr/local/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        Compiler executable checksum: 7896445e4990772fdae9dc0659a99266
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-fopenmp' '-std=c++17' '-v' '-c' '-o' 'CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'CMakeFiles/cmTC_fe151.dir/'
+         as -v --64 -o CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o /tmp/ccrJi16s.s
+        GNU assembler version 2.42 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.42
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-fopenmp' '-std=c++17' '-v' '-c' '-o' 'CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.'
+        Linking CXX executable cmTC_fe151
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fe151.dir/link.txt --verbose=1
+        /usr/lib/ccache/c++  -fopenmp -v CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o -o cmTC_fe151  -v 
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/c++
+        COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/
+        Reading specs from /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.spec
+        COLLECT_GCC_OPTIONS='-fopenmp' '-v' '-o' 'cmTC_fe151' '-v' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'cmTC_fe151.'
+         /usr/libexec/gcc/x86_64-linux-gnu/13/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper -plugin-opt=-fresolution=/tmp/ccKE6iik.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_fe151 /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o /usr/lib/gcc/x86_64-linux-gnu/13/crtoffloadbegin.o -L/usr/lib/gcc/x86_64-linux-gnu/13 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/13/../../.. CMakeFiles/cmTC_fe151.dir/OpenMPTryFlag.cpp.o -lstdc++ -lm -lgomp -lgcc_s -lgcc -lpthread -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o /usr/lib/gcc/x86_64-linux-gnu/13/crtoffloadend.o
+        COLLECT_GCC_OPTIONS='-fopenmp' '-v' '-o' 'cmTC_fe151' '-v' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-pthread' '-dumpdir' 'cmTC_fe151.'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenMP.cmake:386 (try_compile)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenMP.cmake:514 (_OPENMP_GET_SPEC_DATE)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:336 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "OpenMP_SPECTEST_CXX_"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_fffa6/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_fffa6.dir/build.make CMakeFiles/cmTC_fffa6.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_fffa6.dir/OpenMPCheckVersion.cpp.o
+        /usr/lib/ccache/c++   -fopenmp -std=c++17 -o CMakeFiles/cmTC_fffa6.dir/OpenMPCheckVersion.cpp.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/FindOpenMP/OpenMPCheckVersion.cpp"
+        Linking CXX executable cmTC_fffa6
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fffa6.dir/link.txt --verbose=1
+        /usr/lib/ccache/c++  -fopenmp CMakeFiles/cmTC_fffa6.dir/OpenMPCheckVersion.cpp.o -o cmTC_fffa6 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/CheckCSourceCompiles.cmake:52 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.28/Modules/FindThreads.cmake:97 (CHECK_C_SOURCE_COMPILES)"
+      - "/usr/share/cmake-3.28/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:162 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-kXb5wH"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-kXb5wH"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-kXb5wH'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_fc3ba/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_fc3ba.dir/build.make CMakeFiles/cmTC_fc3ba.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-kXb5wH'
+        Building C object CMakeFiles/cmTC_fc3ba.dir/src.c.o
+        /usr/lib/ccache/cc -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_fc3ba.dir/src.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-kXb5wH/src.c"
+        Linking C executable cmTC_fc3ba
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fc3ba.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc CMakeFiles/cmTC_fc3ba.dir/src.c.o -o cmTC_fc3ba 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-kXb5wH'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZCoUTy"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZCoUTy"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZCoUTy'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_80385/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_80385.dir/build.make CMakeFiles/cmTC_80385.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZCoUTy'
+        Building C object CMakeFiles/cmTC_80385.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_80385.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZCoUTy/test_mpi.c"
+        Linking C executable cmTC_80385
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_80385.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_80385.dir/test_mpi.c.o -o cmTC_80385  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZCoUTy'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckLibraryExists.cmake:69 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindX11.cmake:682 (check_library_exists)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:1149 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Looking for XOpenDisplay in /usr/lib/x86_64-linux-gnu/libX11.so;/usr/lib/x86_64-linux-gnu/libXext.so"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-guCBvs"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-guCBvs"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "X11_LIB_X11_SOLO"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-guCBvs'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_79027/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_79027.dir/build.make CMakeFiles/cmTC_79027.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-guCBvs'
+        Building C object CMakeFiles/cmTC_79027.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=XOpenDisplay -o CMakeFiles/cmTC_79027.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-guCBvs/CheckFunctionExists.c"
+        Linking C executable cmTC_79027
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_79027.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=XOpenDisplay CMakeFiles/cmTC_79027.dir/CheckFunctionExists.c.o -o cmTC_79027  /usr/lib/x86_64-linux-gnu/libX11.so /usr/lib/x86_64-linux-gnu/libXext.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-guCBvs'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindX11.cmake:697 (check_function_exists)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:1149 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Looking for gethostbyname"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-pxZV98"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-pxZV98"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "CMAKE_HAVE_GETHOSTBYNAME"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-pxZV98'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_3b63f/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_3b63f.dir/build.make CMakeFiles/cmTC_3b63f.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-pxZV98'
+        Building C object CMakeFiles/cmTC_3b63f.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=gethostbyname -o CMakeFiles/cmTC_3b63f.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-pxZV98/CheckFunctionExists.c"
+        Linking C executable cmTC_3b63f
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3b63f.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=gethostbyname CMakeFiles/cmTC_3b63f.dir/CheckFunctionExists.c.o -o cmTC_3b63f 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-pxZV98'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindX11.cmake:711 (check_function_exists)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:1149 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Looking for connect"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-f43kA5"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-f43kA5"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "CMAKE_HAVE_CONNECT"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-f43kA5'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_fc0f2/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_fc0f2.dir/build.make CMakeFiles/cmTC_fc0f2.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-f43kA5'
+        Building C object CMakeFiles/cmTC_fc0f2.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=connect -o CMakeFiles/cmTC_fc0f2.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-f43kA5/CheckFunctionExists.c"
+        Linking C executable cmTC_fc0f2
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fc0f2.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=connect CMakeFiles/cmTC_fc0f2.dir/CheckFunctionExists.c.o -o cmTC_fc0f2 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-f43kA5'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindX11.cmake:720 (check_function_exists)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:1149 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Looking for remove"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-0wpdEH"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-0wpdEH"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "CMAKE_HAVE_REMOVE"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-0wpdEH'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_22f9d/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_22f9d.dir/build.make CMakeFiles/cmTC_22f9d.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-0wpdEH'
+        Building C object CMakeFiles/cmTC_22f9d.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=remove -o CMakeFiles/cmTC_22f9d.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-0wpdEH/CheckFunctionExists.c"
+        Linking C executable cmTC_22f9d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_22f9d.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=remove CMakeFiles/cmTC_22f9d.dir/CheckFunctionExists.c.o -o cmTC_22f9d 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-0wpdEH'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindX11.cmake:729 (check_function_exists)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:1149 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Looking for shmat"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UYqo9c"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UYqo9c"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "CMAKE_HAVE_SHMAT"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UYqo9c'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_407f5/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_407f5.dir/build.make CMakeFiles/cmTC_407f5.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UYqo9c'
+        Building C object CMakeFiles/cmTC_407f5.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=shmat -o CMakeFiles/cmTC_407f5.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UYqo9c/CheckFunctionExists.c"
+        Linking C executable cmTC_407f5
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_407f5.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=shmat CMakeFiles/cmTC_407f5.dir/CheckFunctionExists.c.o -o cmTC_407f5 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UYqo9c'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckLibraryExists.cmake:69 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindX11.cmake:739 (check_library_exists)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:1149 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    checks:
+      - "Looking for IceConnectionNumber in ICE"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ccpUXD"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ccpUXD"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "CMAKE_LIB_ICE_HAS_ICECONNECTIONNUMBER"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ccpUXD'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_cf318/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_cf318.dir/build.make CMakeFiles/cmTC_cf318.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ccpUXD'
+        Building C object CMakeFiles/cmTC_cf318.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=IceConnectionNumber -o CMakeFiles/cmTC_cf318.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ccpUXD/CheckFunctionExists.c"
+        Linking C executable cmTC_cf318
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_cf318.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=IceConnectionNumber CMakeFiles/cmTC_cf318.dir/CheckFunctionExists.c.o -o cmTC_cf318  -lICE 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ccpUXD'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Jcqlqn"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Jcqlqn"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Jcqlqn'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_20bd0/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_20bd0.dir/build.make CMakeFiles/cmTC_20bd0.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Jcqlqn'
+        Building C object CMakeFiles/cmTC_20bd0.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_20bd0.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Jcqlqn/test_mpi.c"
+        Linking C executable cmTC_20bd0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_20bd0.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_20bd0.dir/test_mpi.c.o -o cmTC_20bd0  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Jcqlqn'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:570 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Q3qdZ9"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Q3qdZ9"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Q3qdZ9'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_4ccf3/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_4ccf3.dir/build.make CMakeFiles/cmTC_4ccf3.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Q3qdZ9'
+        Building C object CMakeFiles/cmTC_4ccf3.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_4ccf3.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Q3qdZ9/test_mpi.c"
+        Linking C executable cmTC_4ccf3
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4ccf3.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_4ccf3.dir/test_mpi.c.o -o cmTC_4ccf3  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-Q3qdZ9'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-d4cKTJ"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-d4cKTJ"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-d4cKTJ'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_e4101/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_e4101.dir/build.make CMakeFiles/cmTC_e4101.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-d4cKTJ'
+        Building C object CMakeFiles/cmTC_e4101.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_e4101.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-d4cKTJ/test_mpi.c"
+        Linking C executable cmTC_e4101
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e4101.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_e4101.dir/test_mpi.c.o -o cmTC_e4101  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-d4cKTJ'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-hEGDPj"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-hEGDPj"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-hEGDPj'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_a8f7d/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_a8f7d.dir/build.make CMakeFiles/cmTC_a8f7d.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-hEGDPj'
+        Building C object CMakeFiles/cmTC_a8f7d.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_a8f7d.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-hEGDPj/test_mpi.c"
+        Linking C executable cmTC_a8f7d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a8f7d.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_a8f7d.dir/test_mpi.c.o -o cmTC_a8f7d  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-hEGDPj'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindBLAS.cmake:372 (check_function_exists)"
+      - "/usr/share/cmake-3.28/Modules/FindBLAS.cmake:416 (check_blas_libraries)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/FindSuiteSparse.cmake:293 (find_package)"
+      - "/usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/CeresConfig.cmake:181 (find_dependency)"
+      - "CMakeLists.txt:13 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-fjeaGX"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-fjeaGX"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/Ceres"
+    buildResult:
+      variable: "BLAS_WORKS"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-fjeaGX'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_3f351/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_3f351.dir/build.make CMakeFiles/cmTC_3f351.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-fjeaGX'
+        Building C object CMakeFiles/cmTC_3f351.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=sgemm_ -o CMakeFiles/cmTC_3f351.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-fjeaGX/CheckFunctionExists.c"
+        Linking C executable cmTC_3f351
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3f351.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=sgemm_ CMakeFiles/cmTC_3f351.dir/CheckFunctionExists.c.o -o cmTC_3f351 
+        /usr/bin/ld: CMakeFiles/cmTC_3f351.dir/CheckFunctionExists.c.o: in function `main':
+        CheckFunctionExists.c:(.text+0x14): undefined reference to `sgemm_'
+        collect2: error: ld returned 1 exit status
+        gmake[1]: *** [CMakeFiles/cmTC_3f351.dir/build.make:99: cmTC_3f351] Error 1
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-fjeaGX'
+        gmake: *** [Makefile:127: cmTC_3f351/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindBLAS.cmake:372 (check_function_exists)"
+      - "/usr/share/cmake-3.28/Modules/FindBLAS.cmake:1318 (check_blas_libraries)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/FindSuiteSparse.cmake:293 (find_package)"
+      - "/usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/CeresConfig.cmake:181 (find_dependency)"
+      - "CMakeLists.txt:13 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-nQnGeM"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-nQnGeM"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/Ceres"
+    buildResult:
+      variable: "BLAS_blas_WORKS"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-nQnGeM'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_47902/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_47902.dir/build.make CMakeFiles/cmTC_47902.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-nQnGeM'
+        Building C object CMakeFiles/cmTC_47902.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=sgemm_ -o CMakeFiles/cmTC_47902.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-nQnGeM/CheckFunctionExists.c"
+        Linking C executable cmTC_47902
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_47902.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=sgemm_ CMakeFiles/cmTC_47902.dir/CheckFunctionExists.c.o -o cmTC_47902  /usr/lib/x86_64-linux-gnu/libblas.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-nQnGeM'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindLAPACK.cmake:220 (check_function_exists)"
+      - "/usr/share/cmake-3.28/Modules/FindLAPACK.cmake:397 (check_lapack_libraries)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/FindSuiteSparse.cmake:300 (find_package)"
+      - "/usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/CeresConfig.cmake:181 (find_dependency)"
+      - "CMakeLists.txt:13 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-XIAnTw"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-XIAnTw"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/Ceres"
+    buildResult:
+      variable: "LAPACK_WORKS"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-XIAnTw'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_00128/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_00128.dir/build.make CMakeFiles/cmTC_00128.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-XIAnTw'
+        Building C object CMakeFiles/cmTC_00128.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=cheev_ -o CMakeFiles/cmTC_00128.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-XIAnTw/CheckFunctionExists.c"
+        Linking C executable cmTC_00128
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_00128.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=cheev_ CMakeFiles/cmTC_00128.dir/CheckFunctionExists.c.o -o cmTC_00128  /usr/lib/x86_64-linux-gnu/libblas.so -lm -ldl 
+        /usr/bin/ld: CMakeFiles/cmTC_00128.dir/CheckFunctionExists.c.o: in function `main':
+        CheckFunctionExists.c:(.text+0x14): undefined reference to `cheev_'
+        collect2: error: ld returned 1 exit status
+        gmake[1]: *** [CMakeFiles/cmTC_00128.dir/build.make:100: cmTC_00128] Error 1
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-XIAnTw'
+        gmake: *** [Makefile:127: cmTC_00128/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckFunctionExists.cmake:86 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindLAPACK.cmake:220 (check_function_exists)"
+      - "/usr/share/cmake-3.28/Modules/FindLAPACK.cmake:706 (check_lapack_libraries)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/FindSuiteSparse.cmake:300 (find_package)"
+      - "/usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/CeresConfig.cmake:181 (find_dependency)"
+      - "CMakeLists.txt:13 (find_package)"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lZO73Y"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lZO73Y"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/Ceres"
+    buildResult:
+      variable: "LAPACK_lapack_WORKS"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lZO73Y'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_28047/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_28047.dir/build.make CMakeFiles/cmTC_28047.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lZO73Y'
+        Building C object CMakeFiles/cmTC_28047.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=cheev_ -o CMakeFiles/cmTC_28047.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lZO73Y/CheckFunctionExists.c"
+        Linking C executable cmTC_28047
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_28047.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=cheev_ CMakeFiles/cmTC_28047.dir/CheckFunctionExists.c.o -o cmTC_28047  /usr/lib/x86_64-linux-gnu/liblapack.so /usr/lib/x86_64-linux-gnu/libblas.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lZO73Y'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CheckLibraryExists.cmake:69 (try_compile)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/FindSuiteSparse.cmake:357 (check_library_exists)"
+      - "/usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/Ceres/CeresConfig.cmake:181 (find_dependency)"
+      - "CMakeLists.txt:13 (find_package)"
+    checks:
+      - "Looking for shm_open in rt"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Wn5zM"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Wn5zM"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/Ceres"
+    buildResult:
+      variable: "HAVE_LIBRT"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Wn5zM'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_2e23d/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_2e23d.dir/build.make CMakeFiles/cmTC_2e23d.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Wn5zM'
+        Building C object CMakeFiles/cmTC_2e23d.dir/CheckFunctionExists.c.o
+        /usr/lib/ccache/cc   -DCHECK_FUNCTION_EXISTS=shm_open -o CMakeFiles/cmTC_2e23d.dir/CheckFunctionExists.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Wn5zM/CheckFunctionExists.c"
+        Linking C executable cmTC_2e23d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2e23d.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc  -DCHECK_FUNCTION_EXISTS=shm_open CMakeFiles/cmTC_2e23d.dir/CheckFunctionExists.c.o -o cmTC_2e23d  -lrt 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Wn5zM'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-RiE18f"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-RiE18f"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-RiE18f'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_203e9/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_203e9.dir/build.make CMakeFiles/cmTC_203e9.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-RiE18f'
+        Building C object CMakeFiles/cmTC_203e9.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_203e9.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-RiE18f/test_mpi.c"
+        Linking C executable cmTC_203e9
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_203e9.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_203e9.dir/test_mpi.c.o -o cmTC_203e9  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-RiE18f'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-TbuEuK"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-TbuEuK"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-TbuEuK'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1d92b/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_1d92b.dir/build.make CMakeFiles/cmTC_1d92b.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-TbuEuK'
+        Building C object CMakeFiles/cmTC_1d92b.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_1d92b.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-TbuEuK/test_mpi.c"
+        Linking C executable cmTC_1d92b
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1d92b.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_1d92b.dir/test_mpi.c.o -o cmTC_1d92b  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-TbuEuK'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:570 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YmTfam"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YmTfam"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YmTfam'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_571e7/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_571e7.dir/build.make CMakeFiles/cmTC_571e7.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YmTfam'
+        Building C object CMakeFiles/cmTC_571e7.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_571e7.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YmTfam/test_mpi.c"
+        Linking C executable cmTC_571e7
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_571e7.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_571e7.dir/test_mpi.c.o -o cmTC_571e7  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YmTfam'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-mrJPPz"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-mrJPPz"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-mrJPPz'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_4d734/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_4d734.dir/build.make CMakeFiles/cmTC_4d734.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-mrJPPz'
+        Building C object CMakeFiles/cmTC_4d734.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_4d734.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-mrJPPz/test_mpi.c"
+        Linking C executable cmTC_4d734
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4d734.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_4d734.dir/test_mpi.c.o -o cmTC_4d734  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-mrJPPz'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lD7yiP"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lD7yiP"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lD7yiP'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_18336/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_18336.dir/build.make CMakeFiles/cmTC_18336.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lD7yiP'
+        Building C object CMakeFiles/cmTC_18336.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_18336.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lD7yiP/test_mpi.c"
+        Linking C executable cmTC_18336
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_18336.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_18336.dir/test_mpi.c.o -o cmTC_18336  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-lD7yiP'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YT1hRP"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YT1hRP"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YT1hRP'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ef28e/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ef28e.dir/build.make CMakeFiles/cmTC_ef28e.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YT1hRP'
+        Building C object CMakeFiles/cmTC_ef28e.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_ef28e.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YT1hRP/test_mpi.c"
+        Linking C executable cmTC_ef28e
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ef28e.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_ef28e.dir/test_mpi.c.o -o cmTC_ef28e  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YT1hRP'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7zldQA"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7zldQA"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7zldQA'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_3b3e4/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_3b3e4.dir/build.make CMakeFiles/cmTC_3b3e4.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7zldQA'
+        Building C object CMakeFiles/cmTC_3b3e4.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_3b3e4.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7zldQA/test_mpi.c"
+        Linking C executable cmTC_3b3e4
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3b3e4.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_3b3e4.dir/test_mpi.c.o -o cmTC_3b3e4  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7zldQA'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:570 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-DMJxuj"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-DMJxuj"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-DMJxuj'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_cb015/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_cb015.dir/build.make CMakeFiles/cmTC_cb015.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-DMJxuj'
+        Building C object CMakeFiles/cmTC_cb015.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_cb015.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-DMJxuj/test_mpi.c"
+        Linking C executable cmTC_cb015
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_cb015.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_cb015.dir/test_mpi.c.o -o cmTC_cb015  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-DMJxuj'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-V1mIx6"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-V1mIx6"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-V1mIx6'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ab3de/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ab3de.dir/build.make CMakeFiles/cmTC_ab3de.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-V1mIx6'
+        Building C object CMakeFiles/cmTC_ab3de.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_ab3de.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-V1mIx6/test_mpi.c"
+        Linking C executable cmTC_ab3de
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ab3de.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_ab3de.dir/test_mpi.c.o -o cmTC_ab3de  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-V1mIx6'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7F8lJB"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7F8lJB"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7F8lJB'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_df7bb/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_df7bb.dir/build.make CMakeFiles/cmTC_df7bb.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7F8lJB'
+        Building C object CMakeFiles/cmTC_df7bb.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_df7bb.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7F8lJB/test_mpi.c"
+        Linking C executable cmTC_df7bb
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_df7bb.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_df7bb.dir/test_mpi.c.o -o cmTC_df7bb  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7F8lJB'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d5ce6/fast
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_d5ce6.dir/build.make CMakeFiles/cmTC_d5ce6.dir/build
+        gmake[2]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE'
+        Building C object CMakeFiles/cmTC_d5ce6.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_d5ce6.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE/test_mpi.c"
+        Linking C executable cmTC_d5ce6
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d5ce6.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_d5ce6.dir/test_mpi.c.o -o cmTC_d5ce6  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[2]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-UfD3OE'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_22f21/fast
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_22f21.dir/build.make CMakeFiles/cmTC_22f21.dir/build
+        gmake[2]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN'
+        Building C object CMakeFiles/cmTC_22f21.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_22f21.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN/test_mpi.c"
+        Linking C executable cmTC_22f21
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_22f21.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_22f21.dir/test_mpi.c.o -o cmTC_22f21  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[2]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ZilNpN'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:570 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_6ebd3/fast
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_6ebd3.dir/build.make CMakeFiles/cmTC_6ebd3.dir/build
+        gmake[2]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8'
+        Building C object CMakeFiles/cmTC_6ebd3.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_6ebd3.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8/test_mpi.c"
+        Linking C executable cmTC_6ebd3
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6ebd3.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_6ebd3.dir/test_mpi.c.o -o cmTC_6ebd3  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[2]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-7m1Wf8'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_84920/fast
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_84920.dir/build.make CMakeFiles/cmTC_84920.dir/build
+        gmake[2]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN'
+        Building C object CMakeFiles/cmTC_84920.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_84920.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN/test_mpi.c"
+        Linking C executable cmTC_84920
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_84920.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_84920.dir/test_mpi.c.o -o cmTC_84920  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[2]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-L3QqEN'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_2aa9d/fast
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_2aa9d.dir/build.make CMakeFiles/cmTC_2aa9d.dir/build
+        gmake[2]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK'
+        Building C object CMakeFiles/cmTC_2aa9d.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_2aa9d.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK/test_mpi.c"
+        Linking C executable cmTC_2aa9d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2aa9d.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_2aa9d.dir/test_mpi.c.o -o cmTC_2aa9d  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[2]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK'
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-3Av6AK'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-cf4IiN"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-cf4IiN"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-cf4IiN'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d5c68/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_d5c68.dir/build.make CMakeFiles/cmTC_d5c68.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-cf4IiN'
+        Building C object CMakeFiles/cmTC_d5c68.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_d5c68.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-cf4IiN/test_mpi.c"
+        Linking C executable cmTC_d5c68
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d5c68.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_d5c68.dir/test_mpi.c.o -o cmTC_d5c68  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-cf4IiN'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-osI3eJ"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-osI3eJ"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-osI3eJ'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_a7e3b/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_a7e3b.dir/build.make CMakeFiles/cmTC_a7e3b.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-osI3eJ'
+        Building C object CMakeFiles/cmTC_a7e3b.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_a7e3b.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-osI3eJ/test_mpi.c"
+        Linking C executable cmTC_a7e3b
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a7e3b.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_a7e3b.dir/test_mpi.c.o -o cmTC_a7e3b  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-osI3eJ'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:570 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-HUW5fL"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-HUW5fL"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-HUW5fL'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_5e134/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_5e134.dir/build.make CMakeFiles/cmTC_5e134.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-HUW5fL'
+        Building C object CMakeFiles/cmTC_5e134.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_5e134.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-HUW5fL/test_mpi.c"
+        Linking C executable cmTC_5e134
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5e134.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_5e134.dir/test_mpi.c.o -o cmTC_5e134  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-HUW5fL'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ooXZcQ"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ooXZcQ"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ooXZcQ'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_4ab0d/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_4ab0d.dir/build.make CMakeFiles/cmTC_4ab0d.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ooXZcQ'
+        Building C object CMakeFiles/cmTC_4ab0d.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_4ab0d.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ooXZcQ/test_mpi.c"
+        Linking C executable cmTC_4ab0d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4ab0d.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_4ab0d.dir/test_mpi.c.o -o cmTC_4ab0d  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ooXZcQ'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:12 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ByAIuc"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ByAIuc"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ByAIuc'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_b36b7/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_b36b7.dir/build.make CMakeFiles/cmTC_b36b7.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ByAIuc'
+        Building C object CMakeFiles/cmTC_b36b7.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_b36b7.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ByAIuc/test_mpi.c"
+        Linking C executable cmTC_b36b7
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b36b7.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_b36b7.dir/test_mpi.c.o -o cmTC_b36b7  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-ByAIuc'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:13 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YRNcKG"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YRNcKG"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YRNcKG'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_eb8a1/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_eb8a1.dir/build.make CMakeFiles/cmTC_eb8a1.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YRNcKG'
+        Building C object CMakeFiles/cmTC_eb8a1.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_eb8a1.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YRNcKG/test_mpi.c"
+        Linking C executable cmTC_eb8a1
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_eb8a1.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_eb8a1.dir/test_mpi.c.o -o cmTC_eb8a1  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-YRNcKG'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:13 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-qxgeRa"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-qxgeRa"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-qxgeRa'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9e37e/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9e37e.dir/build.make CMakeFiles/cmTC_9e37e.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-qxgeRa'
+        Building C object CMakeFiles/cmTC_9e37e.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_9e37e.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-qxgeRa/test_mpi.c"
+        Linking C executable cmTC_9e37e
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9e37e.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_9e37e.dir/test_mpi.c.o -o cmTC_9e37e  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-qxgeRa'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:570 (find_external_library)"
+      - "CMakeLists.txt:13 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-BTZqGY"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-BTZqGY"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-BTZqGY'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1508a/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_1508a.dir/build.make CMakeFiles/cmTC_1508a.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-BTZqGY'
+        Building C object CMakeFiles/cmTC_1508a.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_1508a.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-BTZqGY/test_mpi.c"
+        Linking C executable cmTC_1508a
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1508a.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_1508a.dir/test_mpi.c.o -o cmTC_1508a  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-BTZqGY'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:13 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aUFe3N"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aUFe3N"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aUFe3N'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f58c9/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f58c9.dir/build.make CMakeFiles/cmTC_f58c9.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aUFe3N'
+        Building C object CMakeFiles/cmTC_f58c9.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_f58c9.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aUFe3N/test_mpi.c"
+        Linking C executable cmTC_f58c9
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f58c9.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_f58c9.dir/test_mpi.c.o -o cmTC_f58c9  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aUFe3N'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/VTK-vtk-module-find-packages.cmake:397 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/vtk-config.cmake:150 (include)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:275 (find_package)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_VTK)"
+      - "/usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:567 (find_external_library)"
+      - "CMakeLists.txt:13 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aJoReU"
+      binary: "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aJoReU"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1/patches/99;/usr/lib/x86_64-linux-gnu/cmake/vtk-9.1;/usr/lib/x86_64-linux-gnu/cmake/pcl/Modules"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aJoReU'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_0f6ab/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_0f6ab.dir/build.make CMakeFiles/cmTC_0f6ab.dir/build
+        gmake[1]: Entering directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aJoReU'
+        Building C object CMakeFiles/cmTC_0f6ab.dir/test_mpi.c.o
+        /usr/lib/ccache/cc  -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi  -o CMakeFiles/cmTC_0f6ab.dir/test_mpi.c.o -c "/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aJoReU/test_mpi.c"
+        Linking C executable cmTC_0f6ab
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_0f6ab.dir/link.txt --verbose=1
+        /usr/lib/ccache/cc -L/usr/lib/x86_64-linux-gnu/openmpi/lib CMakeFiles/cmTC_0f6ab.dir/test_mpi.c.o -o cmTC_0f6ab  /usr/lib/x86_64-linux-gnu/libmpi.so 
+        gmake[1]: Leaving directory '/home/alok/radar/rio_stack copy/rio_core/HKUST_RIO/rio/build/CMakeFiles/CMakeScratch/TryCompile-aJoReU'
+        
+      exitCode: 0
+...
