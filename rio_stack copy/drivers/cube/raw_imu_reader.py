@@ -193,7 +193,13 @@ class RawIMUReader:
             return
 
         while self._running:
-            msg = master.recv_match(blocking=True, timeout=0.1)
+            try:
+                msg = master.recv_match(blocking=True, timeout=0.1)
+            except TypeError:
+                # Known pymavlink bug: multi-instance IMU messages (SCALED_IMU2)
+                # cause TypeError: 'NoneType' object does not support item assignment
+                # in pymavlink's internal message dict. Safe to skip and continue.
+                continue
             if not msg: continue
 
             msg_type = msg.get_type()
@@ -216,3 +222,4 @@ class RawIMUReader:
                         "vz_mps": msg.vz / 100.0,
                         "hdg_deg": msg.hdg / 100.0,
                     }
+
