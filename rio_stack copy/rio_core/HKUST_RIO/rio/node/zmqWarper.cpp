@@ -8,8 +8,6 @@ RIO::RIO() {
   zmq_sub.set(zmq::sockopt::rcvtimeo, 100);
   zmq_pub.bind("ipc:///tmp/rio_state_out");
   zmq_thread = std::thread(&RIO::zmqLoop, this);
-
-  initRIO();
 }
 
 RIO::~RIO() { running = false; if(zmq_thread.joinable()) zmq_thread.join(); }
@@ -498,21 +496,20 @@ void RIO::publish(const ros::Time &timeStamp) {
 }
 
 void RIO::radarCallback(const std::vector<Frame::RadarData> &msg, double timestamp) {
+  if (imuData.data.size() < 10) return;
+
   ros::Time time(timestamp);
+  std::vector<Frame::RadarData> frameRadarData = msg;
   
-  Frame::RadarFrame frame;
-  frame.data = msg;
-  frame.receivedTime = time;
+  radarPreprocessor.process(frameRadarData);
   
-  // (The rest of radarCallback remains the same)
-  if (!init) {
-    initStates();
+  if (radarData.data.size() <= 3 || !init) {
+    factorGraphInit(frameRadarData, time);
     init = true;
+    return;
   }
   
-  radarData.push(frame);
-  
-  if (imuData.data.size() < 10) return;
+  constructFactor(frameRadarData, time);
   
   optimizer();
   publish(time);
