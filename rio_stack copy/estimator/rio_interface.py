@@ -140,19 +140,17 @@ class RIOInterface:
                 msg = self._sub_socket.recv_json()
                 
                 # Parse the state
-                state = NavigationState(
+                state = NavigationState(  # type: ignore
                     timestamp=msg.get("timestamp", time.monotonic()),
                     position=np.array(msg.get("position", [0,0,0])),
                     velocity=np.array(msg.get("velocity", [0,0,0])),
-                    orientation_quat=np.array(msg.get("orientation", [1,0,0,0])),
-                    navigation_valid=msg.get("valid", False),
+                    quaternion=np.array(msg.get("orientation", [1,0,0,0])),
                     rio=RIOState(
                         timestamp=msg.get("timestamp", time.monotonic()),
                         valid=msg.get("rio_valid", False),
                         n_static_points=msg.get("n_static", 0),
                         n_radar_points=msg.get("n_total", 0),
-                        fitness_score=msg.get("fitness", 0.0),
-                        condition_number=msg.get("cond", float('inf'))
+                        doppler_residual_rms=msg.get("fitness", 0.0)
                     )
                 )
                 

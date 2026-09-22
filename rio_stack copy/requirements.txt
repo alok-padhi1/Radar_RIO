@@ -3,3 +3,4 @@ numpy>=1.24.0
 pyserial>=3.5
 pynmea2>=1.19.0
 pymavlink>=2.4.41
+pyzmq>=25.1.0

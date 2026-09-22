@@ -23,6 +23,7 @@ import signal
 import sys
 import threading
 import time
+import numpy as np
 
 # Ensure imports work from the new directory structure
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
