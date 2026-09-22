@@ -34,10 +34,10 @@ class ESKFRIOEstimator:
         
         # For publishing RIO state
         self.current_rio_state = RIOState(
-            timestamp=0.0, position=(0,0,0), velocity=(0,0,0),
-            quaternion=(1,0,0,0), bias_accel=(0,0,0), bias_gyro=(0,0,0),
-            radar_points_used=0, radar_velocity=(0,0,0), radar_velocity_covariance=np.eye(3).tolist(),
-            innovation=(0,0,0)
+            timestamp=0.0, position=np.zeros(3), velocity=np.zeros(3),
+            quaternion=np.array([1.0, 0.0, 0.0, 0.0]), bias_accel=np.zeros(3), bias_gyro=np.zeros(3),
+            radar_points_used=0, radar_velocity=np.zeros(3), radar_velocity_covariance=np.eye(3).tolist(),
+            innovation=np.zeros(3)
         )
 
     def _initialize(self, imu: IMUSample) -> bool:
@@ -154,9 +154,9 @@ class ESKFRIOEstimator:
         # Log results
         if accepted:
             self.current_rio_state.radar_points_used = res.num_points_used
-            self.current_rio_state.radar_velocity = res.velocity.tolist()
+            self.current_rio_state.radar_velocity = res.velocity
             self.current_rio_state.radar_velocity_covariance = res.covariance.tolist()
-            self.current_rio_state.innovation = inn.tolist()
+            self.current_rio_state.innovation = inn
         else:
             self.current_rio_state.radar_points_used = 0
             
@@ -164,8 +164,8 @@ class ESKFRIOEstimator:
         if self.eskf is None:
             return
         self.current_rio_state.timestamp = timestamp
-        self.current_rio_state.position = tuple(self.eskf.p)
-        self.current_rio_state.velocity = tuple(self.eskf.v)
-        self.current_rio_state.quaternion = tuple(self.eskf.q)
-        self.current_rio_state.bias_accel = tuple(self.eskf.ba)
-        self.current_rio_state.bias_gyro = tuple(self.eskf.bg)
+        self.current_rio_state.position = self.eskf.p.copy()
+        self.current_rio_state.velocity = self.eskf.v.copy()
+        self.current_rio_state.quaternion = self.eskf.q.copy()
+        self.current_rio_state.bias_accel = self.eskf.ba.copy()
+        self.current_rio_state.bias_gyro = self.eskf.bg.copy()

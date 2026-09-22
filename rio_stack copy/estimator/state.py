@@ -232,9 +232,9 @@ class RIOState:
     optimizer_iterations: int = 0
     
     # ESKF Fusion Metrics
-    radar_velocity: Optional[tuple] = None
+    radar_velocity: Optional[np.ndarray] = None
     radar_velocity_covariance: Optional[list] = None
-    innovation: Optional[tuple] = None
+    innovation: Optional[np.ndarray] = None
     mahalanobis_distance: float = 0.0
     radar_points_used: int = 0
 
