@@ -191,8 +191,9 @@ class StackSupervisor:
                     state.altimeter = altimeter_sample
                     
                 # 4. Feed to Health Manager
-                self.health_manager.update_state_machine(rio=state.rio, altimeter=state.altimeter)
-                
+                if state.altimeter:
+                    self.health_manager.update_altimeter_health(state.altimeter)
+                self.health_manager.update_state_machine(rio=state.rio)
                 # 5. Override validity based on strict health gates
                 state.navigation_valid = (self.health_manager.mode.name == "RIO_ONLY")
                 
