@@ -2,6 +2,11 @@
 """
 estimator/state.py — Canonical data contracts for the RIO navigation stack.
 
+Frame Convention:
+    Body frame: FRD (+X=Forward, +Y=Right, +Z=Down)
+    World frame: NED (+X=North, +Y=East, +Z=Down)
+    Quaternion: q_NB — rotation from NED to Body, Hamilton [w, x, y, z]
+
 Blueprint §34, §71: Every measurement carries timestamp, frame, measurement,
 uncertainty, validity. Every estimate carries state, covariance, quality, age.
 
@@ -90,16 +95,20 @@ class IMUSample:
 
     Primary input for RIO: raw gyro + accelerometer + timestamp.
     NOT autopilot-derived attitude or velocity (§7.1).
+
+    Frame: Body FRD (+X=forward, +Y=right, +Z=down)
+    Source: SCALED_IMU2 with SI unit conversion (mG→m/s², mrad/s→rad/s)
+    Stationary reading: accel ≈ [0, 0, -9.81] (gravity opposing = -Z in FRD)
     """
-    timestamp: float           # Sensor timestamp (closest available, §7.3)
-    accel_x: float             # Accelerometer X [m/s²], body frame
-    accel_y: float             # Accelerometer Y [m/s²], body frame
-    accel_z: float             # Accelerometer Z [m/s²], body frame
-    gyro_x: float              # Gyroscope X [rad/s], body frame
-    gyro_y: float              # Gyroscope Y [rad/s], body frame
-    gyro_z: float              # Gyroscope Z [rad/s], body frame
+    timestamp: float           # Jetson monotonic [s]
+    accel_x: float             # Accelerometer [m/s²], body FRD +X=forward
+    accel_y: float             # Accelerometer [m/s²], body FRD +Y=right
+    accel_z: float             # Accelerometer [m/s²], body FRD +Z=down
+    gyro_x: float              # Gyroscope [rad/s], body FRD +X=roll right
+    gyro_y: float              # Gyroscope [rad/s], body FRD +Y=pitch down
+    gyro_z: float              # Gyroscope [rad/s], body FRD +Z=yaw right
     valid: bool = True
-    source: str = "RAW_IMU"    # "RAW_IMU" | "SCALED_IMU" | "ATTITUDE"
+    source: str = "SCALED_IMU2"
 
     @property
     def accel(self) -> np.ndarray:
@@ -214,14 +223,22 @@ class RegistrationResult:
 class RIOState:
     """RIO estimator output — Blueprint §9.1.
 
-    State: [p_W, v_W, q_WB, b_a, b_g]
+    State: [p_NED, v_NED, q_NB, b_a_FRD, b_g_FRD]
+
+    Frame contract:
+        position:   p_NED [North, East, Down] metres, NED world frame
+        velocity:   v_NED [vN, vE, vD] m/s, NED world frame
+        quaternion: q_NB  [w, x, y, z] NED-to-Body rotation, Hamilton
+        bias_accel: b_a   [m/s²] body FRD frame
+        bias_gyro:  b_g   [rad/s] body FRD frame
+        radar_velocity: v_body [m/s] body FRD frame
     """
     timestamp: float
-    position: np.ndarray = field(default_factory=lambda: np.zeros(3))      # p_W [m]
-    velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))      # v_W [m/s]
-    quaternion: np.ndarray = field(default_factory=lambda: np.array([0., 0., 0., 1.]))  # q_WB [x,y,z,w]
-    bias_accel: np.ndarray = field(default_factory=lambda: np.zeros(3))    # b_a [m/s²]
-    bias_gyro: np.ndarray = field(default_factory=lambda: np.zeros(3))     # b_g [rad/s]
+    position: np.ndarray = field(default_factory=lambda: np.zeros(3))      # p_NED [N,E,D] m
+    velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))      # v_NED [vN,vE,vD] m/s
+    quaternion: np.ndarray = field(default_factory=lambda: np.array([1., 0., 0., 0.]))  # q_NB [w,x,y,z]
+    bias_accel: np.ndarray = field(default_factory=lambda: np.zeros(3))    # b_a body FRD [m/s²]
+    bias_gyro: np.ndarray = field(default_factory=lambda: np.zeros(3))     # b_g body FRD [rad/s]
     pose_covariance: Optional[np.ndarray] = None   # (6, 6) or (21,) upper-tri
     velocity_covariance: Optional[np.ndarray] = None  # (3, 3) or (6,) upper-tri
     valid: bool = False
@@ -231,11 +248,11 @@ class RIOState:
     doppler_residual_rms: float = float('nan')
     imu_residual_rms: float = float('nan')
     optimizer_iterations: int = 0
-    
+
     # ESKF Fusion Metrics
-    radar_velocity: Optional[np.ndarray] = None
-    radar_velocity_covariance: Optional[list] = None
-    innovation: Optional[np.ndarray] = None
+    radar_velocity: Optional[np.ndarray] = None     # body FRD [m/s]
+    radar_velocity_covariance: Optional[list] = None  # body FRD
+    innovation: Optional[np.ndarray] = None         # body FRD
     mahalanobis_distance: float = 0.0
     radar_points_used: int = 0
 
@@ -271,10 +288,10 @@ class NavigationState:
     timestamp: float = 0.0
     frame_id: int = 0
 
-    # Pose
-    position: np.ndarray = field(default_factory=lambda: np.zeros(3))
-    quaternion: np.ndarray = field(default_factory=lambda: np.array([0., 0., 0., 1.]))
-    velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    # Pose — NED world frame
+    position: np.ndarray = field(default_factory=lambda: np.zeros(3))       # p_NED [N,E,D] m
+    quaternion: np.ndarray = field(default_factory=lambda: np.array([1., 0., 0., 0.]))  # q_NB [w,x,y,z]
+    velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))       # v_NED [vN,vE,vD] m/s
 
     # Covariances
     pose_covariance: Optional[np.ndarray] = None

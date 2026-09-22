@@ -1,3 +1,30 @@
+"""
+estimator/eskf_rio/eskf.py — Error-State Kalman Filter.
+
+Frame contract:
+  Nominal state:
+    p_NED   — position in NED world frame [North, East, Down] (metres)
+    v_NED   — velocity in NED world frame (m/s)
+    q_NB    — quaternion NED-to-Body (FRD) [w, x, y, z]
+    b_a     — accelerometer bias in body FRD (m/s²)
+    b_g     — gyroscope bias in body FRD (rad/s)
+
+  Error state (15-dim):
+    δp (3), δv (3), δθ (3), δb_a (3), δb_g (3)
+
+  Gravity:
+    g_NED = [0, 0, +9.80665] — in NED, +Z is down, gravity points down.
+
+  IMU input:
+    accel_FRD — accelerometer reading in body FRD (m/s²)
+    gyro_FRD  — gyroscope reading in body FRD (rad/s)
+
+  Stationary FRD IMU:
+    accel ≈ [0, 0, -9.81]  (sensor measures upward proper acceleration)
+    Prediction: v_dot = R_NB @ accel + g_NED
+             = R_NB @ [0,0,-9.81] + [0,0,+9.81] = 0  ✓
+"""
+
 import numpy as np
 from typing import Optional, Tuple
 import logging
@@ -5,49 +32,57 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ESKF:
+    """Error-State Kalman Filter for Radar-Inertial Odometry.
+
+    State: [p_NED (3), v_NED (3), q_NB (4), b_a (3), b_g (3)]
+    Error State: [δp (3), δv (3), δθ (3), δb_a (3), δb_g (3)] (dim 15)
+
+    All vectors are documented with their frame:
+      p, v     — NED world frame
+      q        — NED-to-Body rotation (Hamilton convention, [w,x,y,z])
+      b_a, b_g — body FRD frame
+      accel, gyro inputs — body FRD frame
     """
-    Error-State Kalman Filter for Radar-Inertial Odometry.
-    State: [p_W (3), v_W (3), q_WB (4), b_a (3), b_g (3)]
-    Error State: [delta_p (3), delta_v (3), delta_theta (3), delta_b_a (3), delta_b_g (3)] (size 15)
-    """
-    def __init__(self, 
+    def __init__(self,
                  initial_p: np.ndarray,
                  initial_q: np.ndarray,
                  initial_v: np.ndarray,
                  initial_ba: np.ndarray,
                  initial_bg: np.ndarray,
                  gravity: np.ndarray = None):
-        # Nominal state
-        self.p = initial_p.copy()
-        self.v = initial_v.copy()
-        self.q = initial_q.copy() / np.linalg.norm(initial_q) # [w, x, y, z]
-        self.ba = initial_ba.copy()
-        self.bg = initial_bg.copy()
+        # Nominal state — all in NED/FRD
+        self.p = initial_p.copy()       # p_NED [N, E, D] metres
+        self.v = initial_v.copy()       # v_NED [vN, vE, vD] m/s
+        self.q = initial_q.copy() / np.linalg.norm(initial_q)  # q_NB [w, x, y, z]
+        self.ba = initial_ba.copy()     # accel bias, body FRD
+        self.bg = initial_bg.copy()     # gyro bias, body FRD
 
-        # Gravity vector — default Z-down if not specified
+        # Gravity vector in NED world frame
+        # NED: +Z is down, gravity points down → g = [0, 0, +9.80665]
         if gravity is not None:
             self.g = gravity.copy()
         else:
-            self.g = np.array([0.0, 0.0, -9.80665])  # FLU convention: Z-up, gravity down
+            self.g = np.array([0.0, 0.0, 9.80665])  # NED convention
 
         # Covariance matrix (15x15)
         self.P = np.eye(15) * 1e-4
-        self.P[0:3, 0:3] *= 1e-6 # position
-        self.P[3:6, 3:6] *= 1e-6 # velocity
-        self.P[6:9, 6:9] *= 1e-6 # orientation
-        self.P[9:12, 9:12] *= 1e-4 # accel bias
-        self.P[12:15, 12:15] *= 1e-4 # gyro bias
+        self.P[0:3, 0:3] *= 1e-6   # position uncertainty
+        self.P[3:6, 3:6] *= 1e-6   # velocity uncertainty
+        self.P[6:9, 6:9] *= 1e-6   # orientation uncertainty
+        self.P[9:12, 9:12] *= 1e-4  # accel bias uncertainty
+        self.P[12:15, 12:15] *= 1e-4 # gyro bias uncertainty
 
         # Process noise continuous-time power spectral densities
         self.Q_c = np.zeros((12, 12))
-        self.Q_c[0:3, 0:3] = np.eye(3) * 0.01**2  # accel noise
-        self.Q_c[3:6, 3:6] = np.eye(3) * 0.005**2 # gyro noise
-        self.Q_c[6:9, 6:9] = np.eye(3) * 0.001**2 # accel bias random walk
+        self.Q_c[0:3, 0:3] = np.eye(3) * 0.01**2   # accel noise PSD
+        self.Q_c[3:6, 3:6] = np.eye(3) * 0.005**2  # gyro noise PSD
+        self.Q_c[6:9, 6:9] = np.eye(3) * 0.001**2  # accel bias random walk
         self.Q_c[9:12, 9:12] = np.eye(3) * 0.0001**2 # gyro bias random walk
 
         self.last_time = None
 
     def quaternion_to_matrix(self, q: np.ndarray) -> np.ndarray:
+        """Convert quaternion [w, x, y, z] to rotation matrix R_NB."""
         w, x, y, z = q
         return np.array([
             [1 - 2*y**2 - 2*z**2, 2*x*y - 2*w*z, 2*x*z + 2*w*y],
@@ -56,6 +91,7 @@ class ESKF:
         ])
 
     def matrix_to_quaternion(self, R: np.ndarray) -> np.ndarray:
+        """Convert rotation matrix to quaternion [w, x, y, z]."""
         tr = np.trace(R)
         if tr > 0:
             S = 2.0 * np.sqrt(tr + 1.0)
@@ -85,38 +121,48 @@ class ESKF:
         return q / np.linalg.norm(q)
 
     def skew(self, v: np.ndarray) -> np.ndarray:
+        """Skew-symmetric matrix [v]×."""
         return np.array([
             [0, -v[2], v[1]],
             [v[2], 0, -v[0]],
             [-v[1], v[0], 0]
         ])
-        
-    def predict(self, dt: float, accel: np.ndarray, gyro: np.ndarray):
-        """
-        Predict state using IMU measurements.
-        accel: (3,) raw accelerometer [m/s^2] in body frame
-        gyro: (3,) raw gyroscope [rad/s] in body frame
-        """
-        # Nominal State Kinematics
-        R = self.quaternion_to_matrix(self.q)
-        accel_unbiased = accel - self.ba
-        gyro_unbiased = gyro - self.bg
 
-        # Simple Euler integration
+    def predict(self, dt: float, accel: np.ndarray, gyro: np.ndarray):
+        """Predict state using IMU measurements.
+
+        Args:
+            dt: time step (seconds)
+            accel: (3,) raw accelerometer in body FRD [m/s²]
+            gyro: (3,) raw gyroscope in body FRD [rad/s]
+
+        Prediction model (NED world frame):
+            p_{k+1} = p_k + v_k·dt + 0.5·(R_NB·a_corrected + g_NED)·dt²
+            v_{k+1} = v_k + (R_NB·a_corrected + g_NED)·dt
+            q_{k+1} = q_k ⊗ Exp(ω_corrected·dt)
+
+        For stationary FRD: accel=[0,0,-9.81], g=[0,0,+9.81]
+            R·[0,0,-9.81] + [0,0,+9.81] = 0  ✓
+        """
+        R = self.quaternion_to_matrix(self.q)  # R_NB
+        accel_unbiased = accel - self.ba       # body FRD
+        gyro_unbiased = gyro - self.bg         # body FRD
+
+        # Euler integration in NED
         self.p = self.p + self.v * dt + 0.5 * (R @ accel_unbiased + self.g) * dt**2
         self.v = self.v + (R @ accel_unbiased + self.g) * dt
-        
+
         # Quaternion integration
         delta_theta = gyro_unbiased * dt
         delta_theta_norm = np.linalg.norm(delta_theta)
         if delta_theta_norm > 1e-8:
             axis = delta_theta / delta_theta_norm
             angle = delta_theta_norm
-            dq = np.array([np.cos(angle/2), 
-                           axis[0]*np.sin(angle/2), 
-                           axis[1]*np.sin(angle/2), 
+            dq = np.array([np.cos(angle/2),
+                           axis[0]*np.sin(angle/2),
+                           axis[1]*np.sin(angle/2),
                            axis[2]*np.sin(angle/2)])
-            # q_new = q_old * dq
+            # q_new = q_old ⊗ dq
             w1, x1, y1, z1 = self.q
             w2, x2, y2, z2 = dq
             self.q = np.array([
@@ -126,7 +172,7 @@ class ESKF:
                 w1*z2 + x1*y2 - y1*x2 + z1*w2
             ])
             self.q /= np.linalg.norm(self.q)
-            
+
         # Error-State Covariance Propagation
         F_x = np.eye(15)
         F_x[0:3, 3:6] = np.eye(3) * dt
@@ -142,107 +188,109 @@ class ESKF:
         F_i[12:15, 9:12] = np.eye(3) * dt
 
         self.P = F_x @ self.P @ F_x.T + F_i @ self.Q_c @ F_i.T
-        
-        # enforce symmetry
+        # Enforce symmetry
         self.P = 0.5 * (self.P + self.P.T)
 
-    def update_velocity(self, v_R: np.ndarray, P_v: np.ndarray, mahalanobis_thresh: float = 3.0) -> Tuple[bool, str, np.ndarray, np.ndarray, np.ndarray, float]:
+    def update_velocity(self, v_body: np.ndarray, P_v: np.ndarray,
+                        mahalanobis_thresh: float = 3.0) -> Tuple[bool, str, np.ndarray, np.ndarray, np.ndarray, float]:
+        """Update state with body-frame velocity measurement.
+
+        Args:
+            v_body: (3,) velocity measured in body FRD frame [m/s]
+            P_v: (3, 3) measurement covariance in body FRD
+            mahalanobis_thresh: innovation gate threshold
+
+        The observation model:
+            z = v_B = R_NB^T · v_NED
         """
-        Update state with Radar Ego Velocity.
-        v_R: (3,) velocity measured in body frame
-        P_v: (3, 3) measurement covariance
-        Returns: (accepted, reason, innovation, S, K, mahalanobis)
-        """
-        # Observation model: z = v_B = R^T * v_W
-        R = self.quaternion_to_matrix(self.q)
-        v_pred = R.T @ self.v
-        
-        innovation = v_R - v_pred
-        
-        # Jacobian H (3x15)
-        # delta_z = H * delta_x
-        # v_B_true = R_true^T * v_W_true
-        # v_B_true = (R * (I + [delta_theta]_x))^T * (v_W + delta_v)
-        # v_B_true approx R^T * (I - [delta_theta]_x) * (v_W + delta_v)
-        # v_B_true approx R^T * v_W + R^T * delta_v - R^T * [delta_theta]_x * v_W
-        # v_B_true approx R^T * v_W + R^T * delta_v + R^T * [v_W]_x * delta_theta
+        R = self.quaternion_to_matrix(self.q)  # R_NB
+        v_pred = R.T @ self.v                  # predicted body velocity
+
+        innovation = v_body - v_pred
+
+        # Jacobian H (3x15): δz = H · δx
         H = np.zeros((3, 15))
-        H[:, 3:6] = R.T
-        H[:, 6:9] = R.T @ self.skew(self.v)
-        
+        H[:, 3:6] = R.T                        # ∂z/∂δv
+        H[:, 6:9] = R.T @ self.skew(self.v)    # ∂z/∂δθ
+
         S = H @ self.P @ H.T + P_v
-        
-        # Mahalanobis distance check
+
+        # Mahalanobis distance
         try:
             S_inv = np.linalg.inv(S)
         except np.linalg.LinAlgError:
             return False, "S_singular", innovation, S, np.zeros((15, 3)), np.inf
-            
+
         maha_sq = innovation.T @ S_inv @ innovation
         maha = np.sqrt(maha_sq)
-        
+
         if maha > mahalanobis_thresh:
             return False, f"mahalanobis_too_large ({maha:.2f} > {mahalanobis_thresh})", innovation, S, np.zeros((15, 3)), maha
-            
+
         K = self.P @ H.T @ S_inv
         delta_x = K @ innovation
-        
+
         self._inject_error_state(delta_x)
-        
+
         # Joseph form covariance update
         I_KH = np.eye(15) - K @ H
         self.P = I_KH @ self.P @ I_KH.T + K @ P_v @ K.T
         self.P = 0.5 * (self.P + self.P.T)
-        
+
         return True, "success", innovation, S, K, maha
 
-    def update_altimeter(self, height_m: float, var_h: float = 0.1**2, mahalanobis_thresh: float = 3.0) -> Tuple[bool, str]:
+    def update_altimeter(self, agl_m: float, var_h: float = 0.1**2,
+                         mahalanobis_thresh: float = 3.0) -> Tuple[bool, str]:
+        """Update state with altimeter AGL measurement.
+
+        In NED: p[2] = Down = -AGL (altitude above ground is negative Z).
+        Measurement model: z_agl = -p_NED[2]
+        So: H = [0, 0, -1, 0...0] (row vector, 1x15)
+
+        Args:
+            agl_m: above-ground-level altitude (positive up) [metres]
+            var_h: measurement variance [m²]
         """
-        Update state with altimeter height.
-        height_m: absolute height (down is positive if z-down, or negative if z-up)
-        Assume world Z is Down, height is -Z. 
-        Actually, let's just assume height measures -p_W[2].
-        """
-        z_pred = -self.p[2]
-        innovation = height_m - z_pred
-        
+        z_pred = -self.p[2]  # predicted AGL from NED state
+        innovation = agl_m - z_pred
+
         H = np.zeros((1, 15))
-        H[0, 2] = -1.0
-        
+        H[0, 2] = -1.0  # ∂z_agl / ∂p_D = -1
+
         S = H @ self.P @ H.T + var_h
         S_inv = 1.0 / S[0, 0]
-        
+
         maha_sq = innovation**2 * S_inv
         maha = np.sqrt(maha_sq)
-        
+
         if maha > mahalanobis_thresh:
             return False, f"altimeter_mahalanobis_too_large ({maha:.2f})"
-            
+
         K = self.P @ H.T * S_inv
         delta_x = (K * innovation).flatten()
-        
+
         self._inject_error_state(delta_x)
-        
+
+        # Joseph form
         I_KH = np.eye(15) - K @ H
-        self.P = I_KH @ self.P @ I_KH.T
-        self.P[2, 2] += K[2, 0]**2 * var_h  # adding the KRK^T term for the non-zero element
+        self.P = I_KH @ self.P @ I_KH.T + K.reshape(-1, 1) @ (np.array([[var_h]])) @ K.reshape(1, -1)
         self.P = 0.5 * (self.P + self.P.T)
-        
+
         return True, "success"
-        
+
     def _inject_error_state(self, delta_x: np.ndarray):
-        """ Inject error state into nominal state """
+        """Inject error state into nominal state."""
         self.p += delta_x[0:3]
         self.v += delta_x[3:6]
-        
-        # delta_theta
+
+        # Orientation correction via small-angle quaternion
         delta_theta = delta_x[6:9]
         angle = np.linalg.norm(delta_theta)
         if angle > 1e-8:
             axis = delta_theta / angle
-            dq = np.array([np.cos(angle/2), 
-                           axis[0]*np.sin(angle/2), 
-                           axis[1]*np.sin(angle/2), 
+            dq = np.array([np.cos(angle/2),
+                           axis[0]*np.sin(angle/2),
+                           axis[1]*np.sin(angle/2),
                            axis[2]*np.sin(angle/2)])
             w1, x1, y1, z1 = self.q
             w2, x2, y2, z2 = dq
@@ -253,6 +301,6 @@ class ESKF:
                 w1*z2 + x1*y2 - y1*x2 + z1*w2
             ])
             self.q /= np.linalg.norm(self.q)
-            
+
         self.ba += delta_x[9:12]
         self.bg += delta_x[12:15]

@@ -104,31 +104,28 @@ class RawIMUReader:
     def _process_raw_imu(self, msg) -> IMUSample:
         """Convert a MAVLink SCALED_IMU2 message to IMUSample.
 
-        Audit §3, §4: Only accept SCALED_IMU2 — documented units:
+        Source: SCALED_IMU2 — documented units:
           accel: mG (milli-g), gyro: mrad/s.
-        Do NOT accept RAW_IMU (unscaled, firmware-dependent).
 
-        Audit §2: Use time.monotonic() for ALL timestamps so that
-        IMU and Radar share the same Jetson clock domain.
+        Output frame: BODY FRD [+X=forward, +Y=right, +Z=down]
+        No frame conversion is applied. MAVLink SCALED_IMU2 is already FRD.
 
-        FRD→FLU conversion: MAVLink uses FRD (Forward, Right, Down).
-        HKUST RIO C++ core expects FLU (Forward, Left, Up).
-        Negate Y and Z axes.
+        Timestamp: Jetson monotonic (common clock domain for all sensors).
         """
         t_mono = time.monotonic()
 
         # SCALED_IMU2: accel in mG, gyro in mrad/s (MAVLink documented)
         # Convert to SI: m/s² and rad/s
-        # Apply FRD→FLU: negate Y and Z
-        ax = msg.xacc / 1000.0 * 9.80665       # mG → m/s²
-        ay = -(msg.yacc / 1000.0 * 9.80665)     # FRD→FLU: negate Y
-        az = -(msg.zacc / 1000.0 * 9.80665)     # FRD→FLU: negate Z
-        gx = msg.xgyro / 1000.0                 # mrad/s → rad/s
-        gy = -(msg.ygyro / 1000.0)               # FRD→FLU: negate Y
-        gz = -(msg.zgyro / 1000.0)               # FRD→FLU: negate Z
+        # NO frame conversion — output is native FRD
+        ax = msg.xacc / 1000.0 * 9.80665       # mG → m/s²  [body +X = forward]
+        ay = msg.yacc / 1000.0 * 9.80665        # mG → m/s²  [body +Y = right]
+        az = msg.zacc / 1000.0 * 9.80665        # mG → m/s²  [body +Z = down]
+        gx = msg.xgyro / 1000.0                 # mrad/s → rad/s  [body +X]
+        gy = msg.ygyro / 1000.0                 # mrad/s → rad/s  [body +Y]
+        gz = msg.zgyro / 1000.0                 # mrad/s → rad/s  [body +Z]
 
         sample = IMUSample(
-            timestamp=t_mono,  # Audit §2: Jetson monotonic clock for all sensors
+            timestamp=t_mono,  # Jetson monotonic clock for all sensors
             accel_x=ax, accel_y=ay, accel_z=az,
             gyro_x=gx, gyro_y=gy, gyro_z=gz,
             valid=True,
