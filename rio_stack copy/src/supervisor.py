@@ -191,11 +191,22 @@ class StackSupervisor:
                     state.altimeter = altimeter_sample
                     
                 # 4. Feed to Health Manager
-                if state.altimeter:
-                    self.health_manager.update_altimeter_health(state.altimeter)
+                if altimeter_sample:
+                    self.health_manager.update_altimeter_health(altimeter_sample)
                 self.health_manager.update_state_machine(rio=state.rio)
-                # 5. Override validity based on strict health gates
-                state.navigation_valid = (self.health_manager.mode.name == "RIO_ONLY")
+                
+                # 5. Populate state from Health Manager
+                state.mode = self.health_manager.mode
+                state.quality = self.health_manager.quality
+                state.quality_reasons = list(self.health_manager._reasons)
+                state.health = {
+                    'radar': self.health_manager.radar_health.healthy,
+                    'imu': self.health_manager.imu_health.healthy,
+                    'altimeter': self.health_manager.altimeter_health.healthy,
+                    'time_sync': self.health_manager.time_sync_healthy,
+                    'observable': self.health_manager.observability.is_fully_observable(),
+                    'navigation_valid': self.health_manager.navigation_valid,
+                }
                 
                 # 6. Output to autopilot
                 if self.mavlink_out:
