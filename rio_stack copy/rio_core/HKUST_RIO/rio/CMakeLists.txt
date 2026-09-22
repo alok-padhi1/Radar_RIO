@@ -14,8 +14,9 @@ find_package(PCL REQUIRED)
 find_package(gflags REQUIRED)
 
 # Mock glog::glog target because libunwind is missing
+find_library(GLOG_LIBRARY glog PATHS /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu)
 add_library(glog::glog SHARED IMPORTED)
-set_target_properties(glog::glog PROPERTIES IMPORTED_LOCATION "/usr/lib/x86_64-linux-gnu/libglog.so")
+set_target_properties(glog::glog PROPERTIES IMPORTED_LOCATION ${GLOG_LIBRARY})
 
 find_package(Ceres REQUIRED)
 find_package(Threads REQUIRED)
