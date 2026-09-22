@@ -2,6 +2,21 @@
 
 RIO::RIO() {
   getParam();
+
+  // Audit §2: Preprocessor configuration (from rosWarper)
+  radarPreprocessor.addFOVParams(Frontend::RadarPreprocessor::FOVParams{
+      -14 * DEG_TO_RAD, 14 * DEG_TO_RAD, -50 * DEG_TO_RAD, +50 * DEG_TO_RAD,
+      0.2, 30});
+  radarPreprocessor.setVelParams(
+      Frontend::RadarPreprocessor::VelParams{-100, 50});
+  radarPreprocessor.setDistanceParams(1.5);
+
+  // Audit §2: Tracker configuration (from rosWarper)
+  scan2scanTracker.setMatchingThreshold(1, 0.3);
+  scan2scanTracker.setMatchingParameters(
+      SigmaRange, SigmaAzimuth, SigmaElevation, numSigma, useRCSFilter);
+  scan2scanTracker.setPredictedVelocityThreshold(0.3);
+
   // Init ZMQ
   zmq_sub.connect("ipc:///tmp/rio_sensor_in");
   zmq_sub.set(zmq::sockopt::subscribe, "");
@@ -16,7 +31,7 @@ RIO::~RIO() { running = false; if(zmq_thread.joinable()) zmq_thread.join(); }
 void RIO::getParam() {
   useWeightedResiduals = true;
   useDopplerResidual = true;
-  usePoint2PointResidual = false;
+  usePoint2PointResidual = true;  // Audit §4: enable point-to-point residual
   SigmaRange = 0.1;
   SigmaAzimuth = 0.05;
   SigmaElevation = 0.05;
@@ -174,8 +189,13 @@ void RIO::optimizer() {
   initStates();
   constructProblem(problem);
   ceres::Solve(option, &problem, &summary);
-  // std::cout << summary.FullReport() << std::endl;
-  recoverState(ceres::CONVERGENCE);
+  // Audit §9: Use actual Ceres termination status, not hard-coded CONVERGENCE
+  if (summary.IsSolutionUsable()) {
+    recoverState(summary.termination_type);
+  } else {
+    printf("Ceres solver failed: %s\n",
+           ceres::TerminationTypeToString(summary.termination_type));
+  }
 }
 
 void RIO::initStates() {
@@ -468,21 +488,22 @@ void RIO::constructPoint2PointResiduals(ceres::Problem &problem) {
 void RIO::publish(const ros::Time &timeStamp) {
   Json::Value msg;
   msg["timestamp"] = timeStamp.toSec();
+  // Audit §8: Publish predState (optimized), not curState (initial guess)
   msg["position"] = Json::arrayValue;
-  msg["position"].append(curState.vec.x());
-  msg["position"].append(curState.vec.y());
-  msg["position"].append(curState.vec.z());
+  msg["position"].append(predState.vec.x());
+  msg["position"].append(predState.vec.y());
+  msg["position"].append(predState.vec.z());
   
   msg["velocity"] = Json::arrayValue;
-  msg["velocity"].append(curState.vel.x());
-  msg["velocity"].append(curState.vel.y());
-  msg["velocity"].append(curState.vel.z());
+  msg["velocity"].append(predState.vel.x());
+  msg["velocity"].append(predState.vel.y());
+  msg["velocity"].append(predState.vel.z());
   
   msg["orientation"] = Json::arrayValue;
-  msg["orientation"].append(curState.rot.w());
-  msg["orientation"].append(curState.rot.x());
-  msg["orientation"].append(curState.rot.y());
-  msg["orientation"].append(curState.rot.z());
+  msg["orientation"].append(predState.rot.w());
+  msg["orientation"].append(predState.rot.x());
+  msg["orientation"].append(predState.rot.y());
+  msg["orientation"].append(predState.rot.z());
   
   msg["valid"] = true;
   msg["rio_valid"] = true;

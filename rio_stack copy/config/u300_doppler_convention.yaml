@@ -17,7 +17,7 @@
 
 vendor_positive_radial_direction: "TOWARD_RADAR"   # VERIFY: bench test required
 rio_positive_direction: "AWAY_FROM_RADAR"          # HKUST RIO convention
-sign: -1                                            # VERIFY: bench test required
+sign: 1                                             # C++ owns negation via -point.doppler
 
 # Calibration record:
 #   date: null

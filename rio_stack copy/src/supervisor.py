@@ -65,6 +65,7 @@ class StackSupervisor:
         self.start_position = None
         self.current_position = None
         self.total_distance_m = 0.0
+        self._last_imu_ts = 0.0  # Audit §11: deduplicate IMU samples
 
     def _setup_logging(self):
         logging.basicConfig(
@@ -172,7 +173,8 @@ class StackSupervisor:
         while self.running:
             # 1. Read hardware
             imu_sample = self.imu_reader.latest_raw
-            if imu_sample:
+            if imu_sample and imu_sample.timestamp != self._last_imu_ts:
+                self._last_imu_ts = imu_sample.timestamp
                 # 2. Sync timestamps & push to C++
                 self.rio_bridge.send_imu(imu_sample)
                 

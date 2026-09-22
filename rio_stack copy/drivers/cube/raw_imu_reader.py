@@ -102,51 +102,37 @@ class RawIMUReader:
         self._callbacks.append(cb)
 
     def _process_raw_imu(self, msg) -> IMUSample:
-        """Convert a MAVLink RAW_IMU / SCALED_IMU message to IMUSample.
+        """Convert a MAVLink SCALED_IMU2 message to IMUSample.
 
-        Blueprint §7.3: Use sensor timestamp, not time.monotonic().
+        Audit §3, §4: Only accept SCALED_IMU2 — documented units:
+          accel: mG (milli-g), gyro: mrad/s.
+        Do NOT accept RAW_IMU (unscaled, firmware-dependent).
+
+        Audit §2: Use time.monotonic() for ALL timestamps so that
+        IMU and Radar share the same Jetson clock domain.
+
+        FRD→FLU conversion: MAVLink uses FRD (Forward, Right, Down).
+        HKUST RIO C++ core expects FLU (Forward, Left, Up).
+        Negate Y and Z axes.
         """
-        # RAW_IMU provides time_usec (sensor time in microseconds)
-        t_sensor = getattr(msg, 'time_usec', 0) / 1e6
         t_mono = time.monotonic()
 
-        # RAW_IMU values are in milli-g for accel, milli-deg/s for gyro
-        # SCALED_IMU provides values in mg and mrad/s
-        msg_type = msg.get_type()
-
-        if msg_type == 'RAW_IMU':
-            # Convert from raw ADC-like values — depends on sensor range
-            # Convert from FRD (MAVLink standard) to FLU (ROS standard)
-            ax = msg.xacc / 1000.0 * 9.80665  # mg → m/s²
-            ay = -(msg.yacc / 1000.0 * 9.80665)
-            az = -(msg.zacc / 1000.0 * 9.80665)
-            gx = np.radians(msg.xgyro / 1000.0)  # mdeg/s → rad/s
-            gy = -np.radians(msg.ygyro / 1000.0)
-            gz = -np.radians(msg.zgyro / 1000.0)
-        elif msg_type == 'SCALED_IMU2' or msg_type == 'SCALED_IMU':
-            # Convert from FRD to FLU
-            ax = msg.xacc / 1000.0 * 9.80665  # mG → m/s²
-            ay = -(msg.yacc / 1000.0 * 9.80665)
-            az = -(msg.zacc / 1000.0 * 9.80665)
-            gx = msg.xgyro / 1000.0  # mrad/s → rad/s
-            gy = -(msg.ygyro / 1000.0)
-            gz = -(msg.zgyro / 1000.0)
-        else:
-            # Fallback
-            ax = ay = az = gx = gy = gz = 0.0
-
-        # Track timestamp monotonicity
-        if t_sensor > 0 and t_sensor < self._last_sensor_ts:
-            self._timestamps_monotonic = False
-            logger.warning(f"IMU timestamp non-monotonic: {t_sensor:.6f} < {self._last_sensor_ts:.6f}")
-        self._last_sensor_ts = t_sensor
+        # SCALED_IMU2: accel in mG, gyro in mrad/s (MAVLink documented)
+        # Convert to SI: m/s² and rad/s
+        # Apply FRD→FLU: negate Y and Z
+        ax = msg.xacc / 1000.0 * 9.80665       # mG → m/s²
+        ay = -(msg.yacc / 1000.0 * 9.80665)     # FRD→FLU: negate Y
+        az = -(msg.zacc / 1000.0 * 9.80665)     # FRD→FLU: negate Z
+        gx = msg.xgyro / 1000.0                 # mrad/s → rad/s
+        gy = -(msg.ygyro / 1000.0)               # FRD→FLU: negate Y
+        gz = -(msg.zgyro / 1000.0)               # FRD→FLU: negate Z
 
         sample = IMUSample(
-            timestamp=t_sensor if t_sensor > 0 else t_mono,
+            timestamp=t_mono,  # Audit §2: Jetson monotonic clock for all sensors
             accel_x=ax, accel_y=ay, accel_z=az,
             gyro_x=gx, gyro_y=gy, gyro_z=gz,
             valid=True,
-            source=msg_type,
+            source='SCALED_IMU2',
         )
 
         # Update health
@@ -212,7 +198,7 @@ class RawIMUReader:
 
             msg_type = msg.get_type()
             
-            if msg_type in ['RAW_IMU', 'SCALED_IMU', 'SCALED_IMU2']:
+            if msg_type == 'SCALED_IMU2':  # Audit §3: Only SCALED_IMU2 has documented units
                 sample = self._process_raw_imu(msg)
                 with self._lock:
                     self._latest_raw = sample
