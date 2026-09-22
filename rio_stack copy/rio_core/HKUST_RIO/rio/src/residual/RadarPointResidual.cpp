@@ -57,7 +57,7 @@ void RadarPointResidual::calculateSqrtInfoGain(double range, double azimuth,
               : abs(sqrtInfoGain.minCoeff() / maxInfoGain);
   sqrtInfoGain = sqrtInfoGain / scale;
 
-  if (es.info() != Eigen::Success || sqrtInfoGain.hasNaN()) {
+  if (es.info() != Eigen::Success || !sqrtInfoGain.allFinite()) {
     sqrtInfoGain << maxInfoGain, 0, 0, 0, maxInfoGain, 0, 0, 0, maxInfoGain;
   }
 

@@ -431,6 +431,9 @@ void RIO::constructPoint2PointResiduals(ceres::Problem &problem) {
   states.pointNum = 0;
   for (auto &point : radarFeatureFactor.pointRelation) {
     if (point.frameId.size() < observationThreshold) continue;
+    if (states.pointNum >= State::MAX_POINT_FEATURE_SIZE) {
+      break;  // Prevent buffer overflow and Ceres memory aliasing
+    }
     std::vector<int> stateIndex(point.frameId.size());
     for (int i = 0; i < point.frameId.size(); i++) {
       for (int j = 0; j < radarFeatureFactor.frameRelation.size(); j++)

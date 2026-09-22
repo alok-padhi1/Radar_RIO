@@ -37,7 +37,7 @@ double RadarImuVelocityResidual::calculateSqrtInfoGain(
                         JThetaPhi.transpose() * velInRadar);
 
   sqrtInfoGain = sqrt(sqrtInfoGain);
-  sqrtInfoGain = (sqrtInfoGain > maxInfoGain || std::isnan(sqrtInfoGain))
+  sqrtInfoGain = (sqrtInfoGain > maxInfoGain || !std::isfinite(sqrtInfoGain))
                      ? maxInfoGain
                      : sqrtInfoGain;
   // std::cout << "sqrtInfoGain: " << sqrtInfoGain << std::endl;
