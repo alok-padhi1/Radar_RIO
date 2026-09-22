@@ -8,21 +8,26 @@ def test_eskf():
     initial_ba = np.zeros(3)
     initial_bg = np.zeros(3)
     
-    eskf = ESKF(initial_p, initial_q, initial_v, initial_ba, initial_bg)
+    # FLU convention: accelerometer reads [0, 0, +9.81] when stationary
+    # (proper acceleration is upward, opposing gravity)
+    # Gravity vector is [0, 0, -9.81] (points downward in FLU)
+    # The ESKF prediction is: v_dot = R*a + g = [0,0,+9.81] + [0,0,-9.81] = 0
+    eskf = ESKF(initial_p, initial_q, initial_v, initial_ba, initial_bg,
+                gravity=np.array([0.0, 0.0, -9.80665]))
     
-    # Predict with no movement
+    # Predict with no movement — FLU stationary accel
     dt = 0.01
-    accel = np.array([0.0, 0.0, -9.80665]) # Z-down
+    accel = np.array([0.0, 0.0, 9.80665])  # FLU: proper accel is +Z (Up)
     gyro = np.zeros(3)
     
     for _ in range(100):
         eskf.predict(dt, accel, gyro)
         
-    print("Test ESKF Predict Stationary")
+    print("Test ESKF Predict Stationary (FLU)")
     print(f"Position: {eskf.p}")
     print(f"Velocity: {eskf.v}")
-    assert np.allclose(eskf.p, 0.0, atol=1e-3)
-    assert np.allclose(eskf.v, 0.0, atol=1e-3)
+    assert np.allclose(eskf.p, 0.0, atol=1e-3), f"Position drifted: {eskf.p}"
+    assert np.allclose(eskf.v, 0.0, atol=1e-3), f"Velocity drifted: {eskf.v}"
     print("Pass!")
     
     # Test Radar update

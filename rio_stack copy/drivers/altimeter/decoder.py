@@ -17,7 +17,21 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-import serial
+try:
+    import serial
+except ImportError:  # pragma: no cover
+    # Provide a minimal stub for serial.Serial for test environments without pyserial.
+    class _SerialStub:
+        """Placeholder Serial class with no functionality, used only for type hints.
+
+        The real driver expects a Serial instance with read/write methods, but unit
+        tests mock these interactions. Providing a stub prevents import errors when
+        the pyserial package is unavailable.
+        """
+        pass
+
+    serial = type('serial', (), {'Serial': _SerialStub})
+
 
 logger = logging.getLogger(__name__)
 

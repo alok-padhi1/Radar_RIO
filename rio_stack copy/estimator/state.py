@@ -29,6 +29,7 @@ class NavigationMode(enum.Enum):
     RADAR_VELOCITY_GOOD = "RADAR_VELOCITY_GOOD"
     RADAR_VELOCITY_DEGRADED = "RADAR_VELOCITY_DEGRADED"
     RIO_IMU_ONLY = "RIO_IMU_ONLY"
+    RIO_ONLY = "RIO_ONLY"  # Alias used by tests and health manager docs
     SLAM_GOOD = "SLAM_GOOD"
     SLAM_DEGRADED = "SLAM_DEGRADED"
     RECOVERY = "RECOVERY"

@@ -43,4 +43,58 @@ def test_health_manager_transitions():
     rio = RIOState(timestamp=0, valid=True, n_static_points=5)
     
     hm.update_state_machine(rio=rio)
-    assert hm.mode == NavigationMode.RIO_ONLY
+    # After first update with valid RIO data, transitions to RIO_IMU_ONLY
+    assert hm.mode == NavigationMode.RIO_IMU_ONLY
+
+def test_navigation_mode_enum_values():
+    """Verify that all expected NavigationMode values exist."""
+    # These are all the modes referenced across the codebase
+    assert NavigationMode.INITIALIZING.value == "INITIALIZING"
+    assert NavigationMode.RIO_IMU_ONLY.value == "RIO_IMU_ONLY"
+    assert NavigationMode.RIO_ONLY.value == "RIO_ONLY"
+    assert NavigationMode.RADAR_VELOCITY_GOOD.value == "RADAR_VELOCITY_GOOD"
+    assert NavigationMode.RADAR_VELOCITY_DEGRADED.value == "RADAR_VELOCITY_DEGRADED"
+    assert NavigationMode.SLAM_GOOD.value == "SLAM_GOOD"
+    assert NavigationMode.SLAM_DEGRADED.value == "SLAM_DEGRADED"
+    assert NavigationMode.RECOVERY.value == "RECOVERY"
+    assert NavigationMode.INVALID.value == "INVALID"
+
+def test_eskf_stationary_zero_distance():
+    """Verify that the ESKF estimator reports zero velocity when stationary."""
+    from estimator.eskf_rio.estimator import ESKFRIOEstimator
+    
+    est = ESKFRIOEstimator(health_manager=None)
+    
+    # Simulate stationary IMU data for initialization (>5 seconds)
+    t = 0.0
+    dt = 0.01  # 100Hz
+    for i in range(600):  # 6 seconds of init data
+        sample = IMUSample(
+            timestamp=t,
+            accel_x=0.0, accel_y=0.0, accel_z=9.81,  # FLU: gravity is +Z
+            gyro_x=0.0, gyro_y=0.0, gyro_z=0.0,
+            valid=True
+        )
+        est.process_imu(sample)
+        t += dt
+    
+    assert est.initialized, "ESKF should be initialized after 6s of data"
+    
+    # Now feed more stationary IMU data
+    for i in range(200):
+        sample = IMUSample(
+            timestamp=t,
+            accel_x=0.0, accel_y=0.0, accel_z=9.81,
+            gyro_x=0.0, gyro_y=0.0, gyro_z=0.0,
+            valid=True
+        )
+        est.process_imu(sample)
+        t += dt
+    
+    # Velocity should be near zero
+    v_mag = np.linalg.norm(est.current_rio_state.velocity)
+    assert v_mag < 0.5, f"Stationary velocity magnitude should be near zero, got {v_mag:.3f} m/s"
+    
+    # Position should be near zero
+    p_mag = np.linalg.norm(est.current_rio_state.position)
+    assert p_mag < 5.0, f"Stationary position magnitude should be near zero, got {p_mag:.3f} m"

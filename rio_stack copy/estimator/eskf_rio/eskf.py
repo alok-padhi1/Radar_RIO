@@ -15,7 +15,8 @@ class ESKF:
                  initial_q: np.ndarray,
                  initial_v: np.ndarray,
                  initial_ba: np.ndarray,
-                 initial_bg: np.ndarray):
+                 initial_bg: np.ndarray,
+                 gravity: np.ndarray = None):
         # Nominal state
         self.p = initial_p.copy()
         self.v = initial_v.copy()
@@ -23,7 +24,11 @@ class ESKF:
         self.ba = initial_ba.copy()
         self.bg = initial_bg.copy()
 
-        self.g = np.array([0.0, 0.0, 9.80665]) # gravity vector (assuming Z-down)
+        # Gravity vector — default Z-down if not specified
+        if gravity is not None:
+            self.g = gravity.copy()
+        else:
+            self.g = np.array([0.0, 0.0, -9.80665])  # FLU convention: Z-up, gravity down
 
         # Covariance matrix (15x15)
         self.P = np.eye(15) * 1e-4

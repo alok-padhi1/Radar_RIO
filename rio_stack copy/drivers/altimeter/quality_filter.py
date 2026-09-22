@@ -177,3 +177,7 @@ class AltimeterQualityFilter:
         self._median_window.clear()
         self._last_accepted = None
         self._last_accepted_time = 0.0
+
+    def process(self, raw, roll: float = 0.0, pitch: float = 0.0):
+        """Alias for filter() — used by AltimeterReader."""
+        return self.filter(raw, roll, pitch)

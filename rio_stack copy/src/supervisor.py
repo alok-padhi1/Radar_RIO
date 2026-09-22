@@ -42,6 +42,10 @@ from estimator.state import NavigationState
 
 logger = logging.getLogger("Supervisor")
 
+# Minimum velocity (m/s) below which distance is NOT accumulated.
+# This prevents position noise from inflating total_distance_m when stationary.
+MIN_VELOCITY_FOR_DISTANCE = 0.15  # m/s
+
 
 class StackSupervisor:
     """Master orchestrator for the RIO navigation stack."""
@@ -105,13 +109,13 @@ class StackSupervisor:
         logger.info("[4/7] Initializing time synchronization")
         self.time_sync = TimeSyncManager(time_cfg)
 
-        # 5. Core Adapters & Estimators
-        logger.info("[5/7] Initializing Python ESKF RIO core")
-        self.eskf_estimator = ESKFRIOEstimator(self.health_manager)
-        
-        # 6. Health Manager
-        logger.info("[6/7] Initializing Navigation Health Manager")
+        # 5. Health Manager — MUST be created BEFORE the estimator
+        logger.info("[5/7] Initializing Navigation Health Manager")
         self.health_manager = NavigationHealthManager(health_cfg)
+
+        # 6. Core Adapters & Estimators — uses health_manager
+        logger.info("[6/7] Initializing Python ESKF RIO core")
+        self.eskf_estimator = ESKFRIOEstimator(self.health_manager)
 
         # 7. MAVLink Output
         if not self.disable_mavlink:
@@ -161,8 +165,6 @@ class StackSupervisor:
             self.u300_adapter.stop()
         if self.altimeter_reader:
             self.altimeter_reader.stop()
-        # if self.eskf_estimator:
-        #     self.eskf_estimator.stop()
         if self.logger:
             self.logger.stop()
             
@@ -178,17 +180,35 @@ class StackSupervisor:
                 # 2. Push to Python ESKF
                 if self.eskf_estimator:
                     self.eskf_estimator.process_imu(imu_sample)
+                    
+                    # Update IMU health in health manager
+                    self.health_manager.update_imu_health(
+                        sample_rate_hz=50.0,  # Nominal from config
+                        gyro_mag=self.imu_reader.last_gyro_mag,
+                        accel_mag=self.imu_reader.last_accel_mag,
+                        timestamp_monotonic=True
+                    )
                 
             # 2b. Read Radar
             radar_scan = self.u300_adapter.read()
             if radar_scan and len(radar_scan.measurements) > 0:
                 if self.eskf_estimator:
                     self.eskf_estimator.process_radar(radar_scan)
+                    
+                    # Update radar health in health manager
+                    rio = self.eskf_estimator.current_rio_state
+                    self.health_manager.update_radar_health(
+                        n_points=rio.n_radar_points,
+                        n_static=rio.n_static_points,
+                        doppler_residual_rms=rio.doppler_residual_rms
+                    )
             
             # 2c. Read Altimeter
             altimeter_sample = self.altimeter_reader.read()
             if altimeter_sample and self.eskf_estimator and self.eskf_estimator.eskf:
-                self.eskf_estimator.eskf.update_altimeter(altimeter_sample.height_m)
+                # Use corrected_agl_m — NOT height_m (AltimeterSample has no height_m attribute)
+                if hasattr(altimeter_sample, 'corrected_agl_m') and not np.isnan(altimeter_sample.corrected_agl_m):
+                    self.eskf_estimator.eskf.update_altimeter(altimeter_sample.corrected_agl_m)
             
             # 3. Read latest state from ESKF
             state = None
@@ -230,14 +250,26 @@ class StackSupervisor:
                 # Log state
                 self.logger.log_navigation_state(state)
                 
-                # Update Summary Stats
+                # Update Summary Stats — only accumulate distance when actually moving
                 if state.position is not None:
                     pos = np.array(state.position)
                     if self.start_position is None:
-                        self.start_position = pos
+                        self.start_position = pos.copy()
+                    
                     if self.current_position is not None:
-                        self.total_distance_m += float(np.linalg.norm(pos - self.current_position))
-                    self.current_position = pos
+                        # Only accumulate distance if:
+                        # 1. The estimator says we're NOT stationary
+                        # 2. The velocity magnitude exceeds the minimum threshold
+                        v_mag = np.linalg.norm(state.velocity) if state.velocity is not None else 0.0
+                        is_moving = (not self.eskf_estimator.is_stationary) and (v_mag > MIN_VELOCITY_FOR_DISTANCE)
+                        
+                        if is_moving:
+                            step = float(np.linalg.norm(pos - self.current_position))
+                            # Also reject unreasonable single-step jumps (> 5m at 200Hz = 1000 m/s)
+                            if step < 5.0:
+                                self.total_distance_m += step
+                    
+                    self.current_position = pos.copy()
                 
             time.sleep(0.005) # Loop at ~200Hz
 
