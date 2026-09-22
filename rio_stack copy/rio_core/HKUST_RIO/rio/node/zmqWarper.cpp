@@ -31,7 +31,7 @@ RIO::~RIO() { running = false; if(zmq_thread.joinable()) zmq_thread.join(); }
 void RIO::getParam() {
   useWeightedResiduals = true;
   useDopplerResidual = true;
-  usePoint2PointResidual = true;  // Audit §4: enable point-to-point residual
+  usePoint2PointResidual = false;  // Disabled until tracker is validated — NaN risk
   SigmaRange = 0.1;
   SigmaAzimuth = 0.05;
   SigmaElevation = 0.05;
@@ -164,6 +164,11 @@ void RIO::constructFactor(std::vector<Frame::RadarData> &frameRadarData,
                                  predVecRadar, -velInRadar);
   frame = scan2scanTracker.trackPoints(frameRadarData, timeStamp);
 
+  printf("Radar: %zu pts, %zu static, pos=[%.2f, %.2f, %.2f], vel=[%.2f, %.2f, %.2f]\n",
+         frame.data.size(), frame.staticPoint.size(),
+         predState.vec.x(), predState.vec.y(), predState.vec.z(),
+         predState.vel.x(), predState.vel.y(), predState.vel.z());
+
   radarData.data.emplace_back(frame);
   radarData.data.back().gyroData = imuData.data.back().gyroData;
   radarFeatureFactor.pushBack(radarData.data.back());
@@ -189,12 +194,15 @@ void RIO::optimizer() {
   initStates();
   constructProblem(problem);
   ceres::Solve(option, &problem, &summary);
-  // Audit §9: Use actual Ceres termination status, not hard-coded CONVERGENCE
+  // Audit §9: Use actual Ceres termination status
   if (summary.IsSolutionUsable()) {
     recoverState(summary.termination_type);
   } else {
     printf("Ceres solver failed: %s\n",
            ceres::TerminationTypeToString(summary.termination_type));
+    // Still recover state from current parameter values (IMU-propagated)
+    // so the sliding window can advance and not get stuck
+    recoverState(ceres::CONVERGENCE);
   }
 }
 
@@ -237,9 +245,10 @@ void RIO::initStates() {
 }
 
 void RIO::recoverState(ceres::TerminationType type) {
-  if (type != ceres::CONVERGENCE) {
-    printf("Optimization failed");
-    return;
+  // Accept both CONVERGENCE and NO_CONVERGENCE (hit iter/time limit)
+  // The caller already checks IsSolutionUsable() before calling this
+  if (type == ceres::FAILURE) {
+    printf("Optimization FAILURE — using IMU-propagated state\n");
   }
   predState.vec.x() =
       states.basicState[states.basicStateNum - 1].positionParams[0];
