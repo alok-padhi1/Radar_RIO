@@ -116,21 +116,21 @@ class RawIMUReader:
 
         if msg_type == 'RAW_IMU':
             # Convert from raw ADC-like values — depends on sensor range
-            # For typical ICM-20689: accel in milli-g, gyro in milli-deg/s
+            # Convert from FRD (MAVLink standard) to FLU (ROS standard)
             ax = msg.xacc / 1000.0 * 9.80665  # mg → m/s²
-            ay = msg.yacc / 1000.0 * 9.80665
-            az = msg.zacc / 1000.0 * 9.80665
+            ay = -(msg.yacc / 1000.0 * 9.80665)
+            az = -(msg.zacc / 1000.0 * 9.80665)
             gx = np.radians(msg.xgyro / 1000.0)  # mdeg/s → rad/s
-            gy = np.radians(msg.ygyro / 1000.0)
-            gz = np.radians(msg.zgyro / 1000.0)
+            gy = -np.radians(msg.ygyro / 1000.0)
+            gz = -np.radians(msg.zgyro / 1000.0)
         elif msg_type == 'SCALED_IMU2' or msg_type == 'SCALED_IMU':
-            # SCALED_IMU: accel in mG, gyro in mrad/s
+            # Convert from FRD to FLU
             ax = msg.xacc / 1000.0 * 9.80665  # mG → m/s²
-            ay = msg.yacc / 1000.0 * 9.80665
-            az = msg.zacc / 1000.0 * 9.80665
+            ay = -(msg.yacc / 1000.0 * 9.80665)
+            az = -(msg.zacc / 1000.0 * 9.80665)
             gx = msg.xgyro / 1000.0  # mrad/s → rad/s
-            gy = msg.ygyro / 1000.0
-            gz = msg.zgyro / 1000.0
+            gy = -(msg.ygyro / 1000.0)
+            gz = -(msg.zgyro / 1000.0)
         else:
             # Fallback
             ax = ay = az = gx = gy = gz = 0.0
