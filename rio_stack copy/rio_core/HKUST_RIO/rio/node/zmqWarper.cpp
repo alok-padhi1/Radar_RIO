@@ -505,7 +505,6 @@ void RIO::radarCallback(const std::vector<Frame::RadarData> &msg, double timesta
   
   if (radarData.data.size() <= 3 || !init) {
     factorGraphInit(frameRadarData, time);
-    init = true;
     return;
   }
   
@@ -522,6 +521,32 @@ void RIO::imuCallback(double timestamp, double ax, double ay, double az, double 
   frame.accData = Eigen::Vector3d(ax, ay, az);
   frame.gyroData = Eigen::Vector3d(gx, gy, gz);
   imuData.push(frame);
+
+  if (!init) {
+    initCounter++;
+    gravity += frame.accData;
+    if (initCounter >= 100) {
+      gravity /= initCounter;
+      curState.vec.setZero();
+      curState.rot.setIdentity();
+      curState.vel.setZero();
+      curState.accBias.setZero();
+      curState.gyroBias.setZero();
+
+      predState.vec.setZero();
+      predState.rot.setIdentity();
+      predState.vel.setZero();
+      predState.accBias.setZero();
+      predState.gyroBias.setZero();
+
+      radarExParam.vec.setZero();
+      radarExParam.vec.z() = -0.05;
+      radarExParam.rot.setIdentity();
+
+      init = true;
+      std::cout << "g:\n" << gravity << std::endl;
+    }
+  }
 }
 
 static Eigen::Quaterniond z90rot(Eigen::AngleAxisd(M_PI / 2,
