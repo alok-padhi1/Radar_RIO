@@ -198,8 +198,7 @@ class StackSupervisor:
                     rio=self.eskf_estimator.current_rio_state,
                     position=self.eskf_estimator.current_rio_state.position,
                     velocity=self.eskf_estimator.current_rio_state.velocity,
-                    quaternion=self.eskf_estimator.current_rio_state.quaternion,
-                    angular_velocity=(self.eskf_estimator.last_gyro[0], self.eskf_estimator.last_gyro[1], self.eskf_estimator.last_gyro[2])
+                    quaternion=self.eskf_estimator.current_rio_state.quaternion
                 )
             
             if state:
