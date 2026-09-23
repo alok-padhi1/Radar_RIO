@@ -275,9 +275,11 @@ class StackSupervisor:
 
     def _watchdog_loop(self):
         """Watchdog monitoring — Blueprint §48."""
+        loops = 0
         while self.running:
             try:
                 time.sleep(1.0)
+                loops += 1
                 if self.health_manager and self.logger:
                     report = self.health_manager.get_quality_report()
                     self.logger.log_health_report(report)
@@ -287,6 +289,15 @@ class StackSupervisor:
                         gps = self.imu_reader.latest_gps
                         if gps:
                             self.logger.log_gps(gps)
+                            
+                # Print live status every 5 seconds
+                if loops % 5 == 0 and self.eskf_estimator and self.health_manager:
+                    rio = self.eskf_estimator.current_rio_state
+                    if rio is not None:
+                        pos = rio.position
+                        vel = rio.velocity
+                        mode = self.health_manager.mode.name if hasattr(self.health_manager.mode, 'name') else str(self.health_manager.mode)
+                        logger.info(f"Live Status | Mode: {mode} | Pos NED(m): [{pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f}] | Vel NED(m/s): [{vel[0]:.2f}, {vel[1]:.2f}, {vel[2]:.2f}]")
                     
             except Exception as e:
                 logger.error(f"Watchdog error: {e}")
