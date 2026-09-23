@@ -227,6 +227,8 @@ class ESKFRIOEstimator:
             # Measurement unavailable — IMU propagates, covariance grows
             # Do NOT apply ZUPT here (correction #6: radar rejected ≠ stationary)
             self.current_rio_state.radar_points_used = 0
+            self.current_rio_state.n_radar_points = len(pts)
+            self.current_rio_state.n_static_points = res.num_points_used
             return
 
         # Transform radar velocity to body-origin velocity in body FRD
@@ -255,6 +257,8 @@ class ESKFRIOEstimator:
                 self._stationary_count = 0
         else:
             self.current_rio_state.radar_points_used = 0
+            self.current_rio_state.n_radar_points = len(pts)
+            self.current_rio_state.n_static_points = res.num_points_used
             # Radar rejected — DO NOT apply ZUPT (correction #6)
             # IMU continues propagating, covariance grows naturally
 

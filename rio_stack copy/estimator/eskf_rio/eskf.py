@@ -66,11 +66,11 @@ class ESKF:
 
         # Covariance matrix (15x15)
         self.P = np.eye(15) * 1e-4
-        self.P[0:3, 0:3] *= 1e-6   # position uncertainty
-        self.P[3:6, 3:6] *= 1e-6   # velocity uncertainty
-        self.P[6:9, 6:9] *= 1e-6   # orientation uncertainty
-        self.P[9:12, 9:12] *= 1e-4  # accel bias uncertainty
-        self.P[12:15, 12:15] *= 1e-4 # gyro bias uncertainty
+        self.P[0:3, 0:3] = np.eye(3) * 0.1**2   # position uncertainty: 10cm
+        self.P[3:6, 3:6] = np.eye(3) * 0.5**2   # velocity uncertainty: 0.5 m/s
+        self.P[6:9, 6:9] = np.eye(3) * 0.1**2   # orientation uncertainty: ~5 deg
+        self.P[9:12, 9:12] = np.eye(3) * 0.1**2 # accel bias uncertainty
+        self.P[12:15, 12:15] = np.eye(3) * 0.05**2 # gyro bias uncertainty
 
         # Process noise continuous-time power spectral densities
         self.Q_c = np.zeros((12, 12))
