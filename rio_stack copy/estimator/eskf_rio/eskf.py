@@ -304,3 +304,79 @@ class ESKF:
 
         self.ba += delta_x[9:12]
         self.bg += delta_x[12:15]
+
+    def update_gravity_alignment(self, accel_body: np.ndarray,
+                                  sigma_gravity_rad: float = 0.02):
+        """Gravity-based attitude correction during ZUPT.
+
+        Corrective Addendum par 8: Prevent attitude drift from leaking
+        gravity into horizontal velocity.
+
+        When stationary, the accelerometer measures the gravity direction
+        in the body frame:
+            a_body = R_NB^T @ g_NED = R_BN @ [0, 0, g]
+
+        The expected reading (FRD stationary) is [0, 0, -g].
+        Any deviation from this indicates attitude error.
+
+        This constrains ROLL and PITCH (not yaw, since gravity has
+        no horizontal component to observe yaw from).
+
+        Args:
+            accel_body: (3,) raw accelerometer reading in body FRD
+            sigma_gravity_rad: measurement noise in radians (~1 degree)
+        """
+        R = self.quaternion_to_matrix(self.q)  # R_NB
+
+        # Expected gravity in body frame: R_NB^T @ g_NED
+        g_body_expected = R.T @ self.g  # Should be ~ [0, 0, -g]
+
+        # Actual measured gravity (accelerometer, bias-corrected)
+        g_body_measured = accel_body - self.ba
+
+        # Normalize both to unit vectors
+        g_exp_norm = np.linalg.norm(g_body_expected)
+        g_meas_norm = np.linalg.norm(g_body_measured)
+        if g_exp_norm < 1.0 or g_meas_norm < 1.0:
+            return  # Something wrong, skip
+
+        g_exp_unit = g_body_expected / g_exp_norm
+        g_meas_unit = g_body_measured / g_meas_norm
+
+        # Innovation: rotation error between expected and measured gravity
+        # Using cross product as small-angle approximation of rotation error
+        # error = g_meas x g_exp (in body frame)
+        innovation = np.cross(g_meas_unit, g_exp_unit)
+
+        # Only correct if error is small (< 10 degrees)
+        err_mag = np.linalg.norm(innovation)
+        if err_mag > 0.17:  # ~10 degrees
+            return
+
+        # Observation Jacobian: H maps attitude error to gravity direction error
+        # H is (3x15), only the attitude error block [6:9] is non-zero
+        H = np.zeros((3, 15))
+        H[:, 6:9] = self.skew(g_exp_unit)  # d(error)/d(delta_theta)
+
+        R_meas = np.eye(3) * sigma_gravity_rad**2
+        S = H @ self.P @ H.T + R_meas
+
+        try:
+            S_inv = np.linalg.inv(S)
+        except np.linalg.LinAlgError:
+            return
+
+        K = self.P @ H.T @ S_inv
+        delta_x = K @ innovation
+
+        # Only inject attitude correction (zero out position/velocity/bias)
+        delta_x[0:6] = 0.0   # Don't touch position or velocity
+        delta_x[9:15] = 0.0  # Don't touch biases
+
+        self._inject_error_state(delta_x)
+
+        # Joseph form covariance update
+        I_KH = np.eye(15) - K @ H
+        self.P = I_KH @ self.P @ I_KH.T + K @ R_meas @ K.T
+        self.P = 0.5 * (self.P + self.P.T)
+

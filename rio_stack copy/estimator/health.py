@@ -136,6 +136,12 @@ class HealthConfig:
     min_good_duration_s: float = 2.0
     min_degraded_duration_s: float = 1.0
 
+    # Addendum par 6: velocity sanity gate
+    max_velocity_mps: float = 25.0
+
+    # Addendum par 7: stale radar accept timeout
+    radar_accept_stale_timeout_s: float = 0.5
+
 
 # ============================================================================
 # Navigation Health Manager — Blueprint §20
@@ -177,6 +183,10 @@ class NavigationHealthManager:
         self._last_rio_output: float = 0.0
         self._last_slam_output: float = 0.0
         self._last_mavlink_output: float = 0.0
+
+        # Addendum par 7: stale radar accept tracking
+        self._last_radar_accept_time: float = 0.0
+        self._velocity_diverged: bool = False
 
     @property
     def mode(self) -> NavigationMode:
@@ -273,6 +283,13 @@ class NavigationHealthManager:
             reason = "stale_reading"
         self.altimeter_health.update(healthy, reason)
 
+    def update_radar_accept_time(self):
+        """Notify that a radar velocity update was accepted by the ESKF.
+
+        Addendum par 7: Health must be based on accepted-radar timestamps.
+        """
+        self._last_radar_accept_time = time.monotonic()
+
     def update_observability(self, eigenvalues: np.ndarray,
                               threshold: float = None):
         """Update 6-DOF observability from registration or estimator.
@@ -317,6 +334,26 @@ class NavigationHealthManager:
         """
         now = time.monotonic()
         self._reasons = []
+
+        # Addendum par 6: velocity sanity gate
+        if rio is not None and hasattr(rio, 'velocity'):
+            v_mag = float(np.linalg.norm(rio.velocity))
+            if v_mag > self.config.max_velocity_mps:
+                self._velocity_diverged = True
+                self._set_mode(NavigationMode.INVALID)
+                self._quality = QualityLevel.INVALID
+                self._reasons.append(f"velocity_diverged ({v_mag:.1f} m/s)")
+                logger.error(f"VELOCITY SANITY GATE: {v_mag:.1f} m/s > {self.config.max_velocity_mps} limit")
+                return
+
+        # Addendum par 7: stale radar accept
+        if (self._last_radar_accept_time > 0 and
+                self._mode in (NavigationMode.RADAR_VELOCITY_GOOD,) and
+                (now - self._last_radar_accept_time) > self.config.radar_accept_stale_timeout_s):
+            self._set_mode(NavigationMode.RADAR_VELOCITY_DEGRADED)
+            self._quality = QualityLevel.DEGRADED
+            self._reasons.append("radar_accept_stale")
+            return
 
         # Check for INVALID conditions first
         if self.imu_health.is_stale(now):
