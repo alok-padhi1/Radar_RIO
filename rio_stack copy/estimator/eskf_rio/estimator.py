@@ -73,6 +73,7 @@ class ESKFRIOEstimator:
         self.imu_buffer: List[IMUSample] = []
         self._is_stationary = True
         self._stationary_count = 0
+        self._radar_log_counter = 0
 
         # RIO state output — all vectors in NED/FRD
         self.current_rio_state = RIOState(
@@ -237,6 +238,16 @@ class ESKFRIOEstimator:
         # Transform covariance to body frame
         R_BR = self.extrinsics.R_B_R
         P_v_body = R_BR @ res.covariance @ R_BR.T
+
+        # Debug: log the pre/post rotation velocities every update
+        v_mag_radar = np.linalg.norm(res.velocity)
+        v_mag_body = np.linalg.norm(v_body)
+        if v_mag_radar > 0.1 or self._radar_log_counter % 20 == 0:
+            logger.info(
+                f"Radar v_radar={res.velocity.round(3)} → v_body={v_body.round(3)} "
+                f"|v_r|={v_mag_radar:.3f} |v_b|={v_mag_body:.3f} pts={res.num_points_used} cond={res.condition_number:.1f}"
+            )
+        self._radar_log_counter += 1
 
         # Apply ESKF velocity update
         accepted, reason, inn, S, K, maha = self.eskf.update_velocity(v_body, P_v_body)

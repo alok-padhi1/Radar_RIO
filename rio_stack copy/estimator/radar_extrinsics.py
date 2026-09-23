@@ -92,7 +92,10 @@ class RadarExtrinsics:
         R = _rpy_to_matrix(rpy[0], rpy[1], rpy[2])
 
         # These are PLACEHOLDER until calibrated
-        return cls(R_B_R=R, t_B_R=t, calibrated=False)
+        inst = cls(R_B_R=R, t_B_R=t, calibrated=False)
+        logger.info(f"Loaded extrinsics: t_B_R={t.tolist()}, RPY_deg={rpy}")
+        logger.info(f"R_B_R:\n{R}")
+        return inst
 
     @classmethod
     def identity(cls) -> 'RadarExtrinsics':
