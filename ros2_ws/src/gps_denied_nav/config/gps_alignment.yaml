@@ -1,0 +1,8 @@
+/**:
+    ros__parameters:
+        gps_topic: "/fmu/out/vehicle_gps_position"
+        min_satellites: 8
+        max_hdop: 1.5
+        max_vdop: 2.0
+        # Wait this many seconds of stable GPS before doing an initial alignment
+        initial_alignment_wait_sec: 5.0

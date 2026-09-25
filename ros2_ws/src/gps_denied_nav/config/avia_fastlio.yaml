@@ -1,0 +1,18 @@
+/**:
+    ros__parameters:
+        # Topic mapping
+        input_lidar_topic: "/livox/lidar"
+        input_imu_topic: "/livox/imu"
+        output_lidar_topic: "/fastlio/lidar"
+        output_imu_topic: "/fastlio/imu"
+
+        # Frame IDs
+        lidar_frame_id: "livox_frame"
+        imu_frame_id: "livox_frame"
+
+        # Validation
+        max_lidar_age_ms: 200.0         # reject if older than this
+        max_imu_age_ms: 50.0            # reject if older than this
+        min_points_per_scan: 100        # reject scans with fewer points
+        max_points_per_scan: 1000000    # reject suspiciously large scans
+        diagnostics_period_sec: 1.0     # how often to publish diagnostics

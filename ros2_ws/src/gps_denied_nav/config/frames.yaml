@@ -1,0 +1,13 @@
+/**:
+    ros__parameters:
+        # TF frame names (§23)
+        map_frame: "map"
+        odom_frame: "odom"
+        base_link_frame: "base_link"
+        lidar_frame: "livox_frame"
+        imu_frame: "livox_frame"
+        fc_frame: "flight_controller_frame"
+
+        # Body-to-LiDAR extrinsic (identity if LiDAR IS the body reference)
+        body_to_lidar_translation: [0.0, 0.0, 0.0]
+        body_to_lidar_rotation: [0.0, 0.0, 0.0, 1.0]  # quaternion xyzw

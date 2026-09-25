@@ -19,6 +19,7 @@
   <depend>tf2_ros</depend>
   <depend>tf2_eigen</depend>
   <depend>gps_denied_nav_msgs</depend>
+  <depend>livox_interfaces</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

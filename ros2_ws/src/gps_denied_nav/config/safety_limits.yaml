@@ -1,0 +1,6 @@
+/**:
+    ros__parameters:
+        cpu_max_percent: 90.0
+        mem_min_available_mb: 500
+        sensor_max_latency_ms: 100.0
+        estimator_timeout_sec: 1.0

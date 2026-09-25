@@ -1,0 +1,5 @@
+/**:
+    ros__parameters:
+        missions_path: "/mnt/nvme/maps/missions/"
+        px4_setpoint_topic: "/fmu/in/trajectory_setpoint"
+        setpoint_rate_hz: 10.0

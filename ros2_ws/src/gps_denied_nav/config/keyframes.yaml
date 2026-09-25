@@ -1,0 +1,14 @@
+/**:
+    ros__parameters:
+        # Keyframe trigger thresholds (§8)
+        translation_threshold_m: 0.5    # create keyframe after this much translation
+        rotation_threshold_deg: 5.0     # create keyframe after this much yaw change
+        max_time_interval_sec: 3.0      # force keyframe after this time even if no motion
+
+        # Submap formation
+        submap_keyframe_count: 10       # number of keyframes per submap
+        submap_voxel_resolution: 0.15   # voxel size for submap downsampling
+
+        # Storage
+        keyframe_storage_path: "/mnt/nvme/maps/keyframes/"
+        max_active_keyframes: 200       # keep at most this many in RAM

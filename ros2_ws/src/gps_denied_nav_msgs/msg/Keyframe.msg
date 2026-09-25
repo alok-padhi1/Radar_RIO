@@ -1,0 +1,9 @@
+uint32 keyframe_id
+uint32 submap_id
+uint64 timestamp
+geometry_msgs/PoseWithCovariance pose
+geometry_msgs/TwistWithCovariance twist
+uint32 point_count
+float32 voxel_resolution
+float32 fast_lio_quality
+string storage_path

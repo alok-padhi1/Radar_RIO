@@ -1,0 +1,6 @@
+/**:
+    ros__parameters:
+        mem_level_normal_pct: 25.0
+        mem_level_reduce_cache_pct: 15.0
+        mem_level_stop_loop_closure_pct: 10.0
+        max_log_buffer_mb: 200

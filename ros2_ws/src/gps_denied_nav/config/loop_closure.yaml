@@ -1,0 +1,8 @@
+/**:
+    ros__parameters:
+        descriptor_storage_path: "/mnt/nvme/maps/descriptors/"
+        candidate_search_radius: 15.0     # meter radius to search for candidates
+        exclude_recent_time_sec: 30.0     # don't loop close with recent past
+        coarse_alignment_threshold: 0.15  # acceptable score for coarse pass
+        fine_alignment_max_iter: 50
+        fine_alignment_threshold: 0.05    # acceptable fitness score for fine pass

@@ -1,0 +1,5 @@
+/**:
+    ros__parameters:
+        px4_odom_topic: "/fmu/in/vehicle_visual_odometry"
+        px4_odom_rate_hz: 30.0            # Downsample if FAST-LIO runs faster
+        watchdog_timeout_sec: 0.5         # Declare bridge dead if no odom for 0.5s

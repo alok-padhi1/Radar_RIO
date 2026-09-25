@@ -1,0 +1,5 @@
+/**:
+    ros__parameters:
+        default_primary: "SLAM"           # Or "GPS" if desired
+        gps_spoof_residual_threshold: 5.0 # meters discrepancy between SLAM and GPS
+        gps_stability_window_sec: 10.0    # require stable GPS for this long before trusting again

@@ -17,6 +17,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(gps_denied_nav_msgs REQUIRED)
+find_package(livox_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 include_directories(include)
@@ -39,6 +40,7 @@ add_executable(avia_fastlio_adapter src/avia_fastlio_adapter.cpp)
 ament_target_dependencies(avia_fastlio_adapter
   rclcpp
   sensor_msgs
+  livox_interfaces
 )
 
 add_executable(lio_output_adapter src/lio_output_adapter.cpp)
@@ -62,12 +64,29 @@ ament_target_dependencies(safety_supervisor
   gps_denied_nav_msgs
 )
 
+add_executable(keyframe_manager src/keyframe_manager.cpp)
+ament_target_dependencies(keyframe_manager
+  rclcpp
+  nav_msgs
+  sensor_msgs
+  tf2
+  gps_denied_nav_msgs
+)
+
+add_executable(map_backend src/map_backend.cpp)
+ament_target_dependencies(map_backend
+  rclcpp
+  gps_denied_nav_msgs
+)
+
 install(TARGETS
   frame_converter
   avia_fastlio_adapter
   lio_output_adapter
   px4_bridge
   safety_supervisor
+  keyframe_manager
+  map_backend
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -76,6 +95,10 @@ install(TARGETS
 
 install(DIRECTORY include/
   DESTINATION include
+)
+
+install(DIRECTORY launch/ config/
+  DESTINATION share/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
