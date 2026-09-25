@@ -3,11 +3,29 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+
 def generate_launch_description():
     pkg_dir = get_package_share_directory('gps_denied_nav')
     config_dir = os.path.join(pkg_dir, 'config')
 
-    # 1. Avia FAST-LIO Adapter
+    # 1. Livox Driver Launch
+    livox_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('livox_ros2_avia'), 'launch', 'livox_lidar_msg_launch.py')
+        )
+    )
+
+    # 2. FAST-LIO2 Launch
+    fastlio_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('fast_lio'), 'launch', 'mapping.launch.py')
+        ),
+        launch_arguments={'config_file': 'avia.yaml', 'rviz': 'false'}.items()
+    )
+
+    # 3. Avia FAST-LIO Adapter
     avia_fastlio_adapter = Node(
         package='gps_denied_nav',
         executable='avia_fastlio_adapter',
@@ -57,6 +75,8 @@ def generate_launch_description():
     # NOTE: px4_bridge is INTENTIONALLY omitted for passive testing.
 
     return LaunchDescription([
+        livox_launch,
+        fastlio_launch,
         avia_fastlio_adapter,
         lio_output_adapter,
         safety_supervisor,

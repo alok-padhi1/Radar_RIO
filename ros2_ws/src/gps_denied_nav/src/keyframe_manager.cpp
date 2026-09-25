@@ -93,14 +93,24 @@ private:
       kf_id_++;
 
       std::stringstream ss;
-      ss << storage_path_ << "/kf_" << std::setfill('0') << std::setw(6) << kf_id_ << ".bin";
+      ss << storage_path_ << "/kf_" << std::setfill('0') << std::setw(6) << kf_id_ << ".pcd";
       std::string path = ss.str();
 
-      // Write pointcloud as binary float32 (x,y,z)
-      std::ofstream out(path, std::ios::binary);
+      // Count points first
       uint32_t point_count = 0;
+      sensor_msgs::PointCloud2ConstIterator<float> count_x(*cloud, "x");
+      for (; count_x != count_x.end(); ++count_x) {
+          point_count++;
+      }
       
+      std::ofstream out(path, std::ios::binary);
       if (out.is_open()) {
+          // Write PCD header
+          out << "# .PCD v0.7 - Point Cloud Data file format\n";
+          out << "VERSION 0.7\nFIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nCOUNT 1 1 1\n";
+          out << "WIDTH " << point_count << "\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n";
+          out << "POINTS " << point_count << "\nDATA binary\n";
+
           sensor_msgs::PointCloud2ConstIterator<float> iter_x(*cloud, "x");
           sensor_msgs::PointCloud2ConstIterator<float> iter_y(*cloud, "y");
           sensor_msgs::PointCloud2ConstIterator<float> iter_z(*cloud, "z");
@@ -108,7 +118,6 @@ private:
           for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
               float pt[3] = {*iter_x, *iter_y, *iter_z};
               out.write(reinterpret_cast<char*>(&pt), sizeof(pt));
-              point_count++;
           }
           out.close();
       } else {
