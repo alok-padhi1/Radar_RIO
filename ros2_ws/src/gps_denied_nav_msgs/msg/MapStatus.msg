@@ -1,0 +1,7 @@
+uint32 loaded_map_version
+uint32 last_keyframe_id
+uint32 total_keyframes
+uint32 submap_count
+bool is_map_closed
+bool is_map_loaded
+string storage_path

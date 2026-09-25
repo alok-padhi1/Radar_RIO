@@ -1,0 +1,6 @@
+string session_name
+bool compress_map
+---
+bool success
+string storage_path
+string message

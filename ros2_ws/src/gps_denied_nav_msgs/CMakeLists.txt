@@ -14,6 +14,10 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EstimatorHealth.msg"
   "msg/Keyframe.msg"
+  "msg/MapStatus.msg"
+  "srv/ResetLio.srv"
+  "srv/SaveLioSession.srv"
+  "srv/LoadLioMap.srv"
   DEPENDENCIES geometry_msgs
 )
 

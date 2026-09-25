@@ -1,0 +1,6 @@
+string map_path
+bool load_keyframes
+---
+bool success
+uint32 loaded_keyframes
+string message

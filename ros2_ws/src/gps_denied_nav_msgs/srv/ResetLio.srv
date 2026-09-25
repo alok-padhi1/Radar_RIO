@@ -1,0 +1,5 @@
+bool reset_map
+bool clear_cache
+---
+bool success
+string message
