@@ -1,0 +1,11 @@
+build/
+install/
+log/
+.ros/
+*.pcd
+*.lvx
+*.bag
+*.sqlite3
+__pycache__/
+*.pyc
+.git_bak/
