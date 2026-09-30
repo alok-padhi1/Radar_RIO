@@ -2,9 +2,9 @@
     ros__parameters:
         feature_extract_enable: false
         point_filter_num: 1
-        max_iteration: 3
-        filter_size_surf: 0.2
-        filter_size_map: 0.1
+        max_iteration: 3              # proven value, do not increase on laptop
+        filter_size_surf: 0.2         # proven value
+        filter_size_map: 0.1          # proven value, 0.05 overloads CPU
         cube_side_length: 1000.0
         runtime_pos_log_enable: false
 
@@ -17,7 +17,7 @@
         preprocess:
             lidar_type: 1                # 1 for Livox serials LiDAR
             scan_line: 6
-            blind: 4.0                   # reject points closer than 4m (noise)
+            blind: 0.1                   # Set back to 0.1 so we don't reject indoor points!
 
         mapping:
             acc_cov: 0.1
@@ -26,7 +26,7 @@
             b_gyr_cov: 0.0001
             fov_degree:    90.0
             det_range:     450.0
-            extrinsic_est_en:  false     # use known calibration, do NOT estimate online
+            extrinsic_est_en:  false     # lock known calibration, reduces filter noise
             extrinsic_T: [ 0.04165, 0.02326, -0.0284 ]
             extrinsic_R: [ 1., 0., 0.,
                         0., 1., 0.,

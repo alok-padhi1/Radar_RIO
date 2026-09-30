@@ -45,11 +45,15 @@ class SupervisorNode(Node):
         dx = x - self.last_x
         dy = y - self.last_y
         dz = z - self.last_z
-        self.total_distance += math.sqrt(dx*dx + dy*dy + dz*dz)
+        dist_step = math.sqrt(dx*dx + dy*dy + dz*dz)
         
-        self.last_x = x
-        self.last_y = y
-        self.last_z = z
+        # Deadband filter: ignore micro-jitter < 10mm to prevent runaway distance while stationary
+        # Walking at 1m/s @ 20Hz = 50mm/frame (passes easily), stationary jitter ~3mm/frame (blocked)
+        if dist_step > 0.01:
+            self.total_distance += dist_step
+            self.last_x = x
+            self.last_y = y
+            self.last_z = z
 
         sys.stdout.write(f"\r🚀 Current Position: X={x:7.3f} m | Y={y:7.3f} m | Z={z:7.3f} m | Dist={self.total_distance:7.3f} m   ")
         sys.stdout.flush()
