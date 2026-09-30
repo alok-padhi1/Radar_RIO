@@ -3,9 +3,9 @@
 <package format="3">
   <name>gps_denied_nav</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="alok@todo.todo">alok</maintainer>
-  <license>TODO: License declaration</license>
+  <description>GPS-denied navigation stack for Livox Avia + FAST-LIO2 on PX4</description>
+  <maintainer email="alok@alok.dev">alok</maintainer>
+  <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

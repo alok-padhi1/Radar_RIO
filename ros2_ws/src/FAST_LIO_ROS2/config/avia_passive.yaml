@@ -1,0 +1,44 @@
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 1
+        max_iteration: 3
+        filter_size_surf: 0.2
+        filter_size_map: 0.1
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+
+        common:
+            lid_topic:  "/livox/lidar"
+            imu_topic:  "/livox/imu"
+            time_sync_en: false
+            time_offset_lidar_to_imu: 0.0
+
+        preprocess:
+            lidar_type: 1                # 1 for Livox serials LiDAR
+            scan_line: 6
+            blind: 4.0                   # reject points closer than 4m (noise)
+
+        mapping:
+            acc_cov: 0.1
+            gyr_cov: 0.1
+            b_acc_cov: 0.0001
+            b_gyr_cov: 0.0001
+            fov_degree:    90.0
+            det_range:     450.0
+            extrinsic_est_en:  false     # use known calibration, do NOT estimate online
+            extrinsic_T: [ 0.04165, 0.02326, -0.0284 ]
+            extrinsic_R: [ 1., 0., 0.,
+                        0., 1., 0.,
+                        0., 0., 1.]
+
+        publish:
+            path_en:  false              # no path accumulation
+            scan_publish_en:  false      # no point cloud output
+            map_en: false                # no global map accumulation
+            dense_publish_en: false      # no dense output
+            scan_bodyframe_pub_en: false # no body-frame cloud
+
+        pcd_save:
+            pcd_save_en: false           # no PCD saving
+            interval: 0

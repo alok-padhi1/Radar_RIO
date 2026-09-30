@@ -2,6 +2,6 @@
     ros__parameters:
         map_tile_size_m: 50.0             # size of each map tile block
         max_tiles_in_ram: 10              # LRU cache size limit
-        map_db_path: "/mnt/nvme/maps/map.sqlite3"
+        map_db_path: "/mnt/nvme/maps/map.csv"      # CSV index (prototype)
         tile_storage_path: "/mnt/nvme/maps/tiles/"
         manifest_path: "/mnt/nvme/maps/manifest.yaml"

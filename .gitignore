@@ -6,6 +6,8 @@ log/
 *.lvx
 *.bag
 *.sqlite3
+*.mcap
+bags/
 __pycache__/
 *.pyc
 .git_bak/

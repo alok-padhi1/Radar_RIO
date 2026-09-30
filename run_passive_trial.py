@@ -95,10 +95,6 @@ def cleanup(sig, frame):
         print("No odometry data was received.")
     print("\n✅ Rosbag securely saved to:")
     print(f"   {bag_dir}")
-    print("✅ FAST-LIO Submaps/Keyframes saved to:")
-    print("   /mnt/nvme/maps/keyframes/  <-- You can open these .pcd files in CloudCompare!")
-    print("✅ Map Manifest saved to:")
-    print("   /mnt/nvme/maps/manifest.yaml")
     print("=========================================================\n")
     sys.exit(0)
 
@@ -125,7 +121,7 @@ def main():
     
     print("[2] Starting Rosbag recording...")
     print(f"    Bag will be saved to: {bag_dir}")
-    bag_cmd = f'ros2 bag record -o {bag_dir} /livox/lidar /livox/imu /Odometry /lio/health /keyframe /tf /tf_static'
+    bag_cmd = f'ros2 bag record -o {bag_dir} /livox/lidar /livox/imu /Odometry /lio_odom /estimator_health /tf /tf_static'
     bag_proc = subprocess.Popen(bag_cmd, shell=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=os.setsid)
     
     time.sleep(2)
